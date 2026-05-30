@@ -1,0 +1,13 @@
+tag_prefix = "v"
+
+[changelog]
+path = "CHANGELOG.md"
+template = "remote"
+remote = "github.com"
+repository = "agent-tools"
+owner = "proofhouse"
+authors = [{ username = "tbhb", signature = "Tony Burns" }]
+
+[commit_types]
+chore = { omit_from_changelog = true }
+test = { omit_from_changelog = true }

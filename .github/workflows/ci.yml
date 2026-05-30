@@ -1,0 +1,225 @@
+---
+# Main quality gate. Runs the Go-flavored lint set, the test suite
+# (matrixed across linux/macOS/windows native runners with the race
+# detector enabled in every slot), govulncheck, and the vendor-drift
+# check on every pull request and every push to `main`. Each gate
+# runs as its own job so a flake in one block does not require
+# rerunning the others and the PR status surfaces which gate fired.
+# Each matrix slot also uploads its own coverage report to GitHub's
+# code coverage API, and a downstream `coverage` job merges the slots
+# into one combined report.
+# The non-Go lint set (vale, cspell, rumdl, biome, yamllint) lands
+# in follow-up workflows that handle each tool's distinct install
+# path.
+#
+# Every job installs `just` from a SHA-pinned casey/just release
+# tarball, verifies the bundled SHA256SUMS, and then invokes the
+# matching `just <recipe>` so the recipe is the single source of
+# truth for what the gate runs. The local `just check` and
+# `just check-all` aggregators stay in lockstep with this workflow.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint-go:
+    name: lint-go
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: go.mod
+          check-latest: false
+
+      - name: Set up just
+        uses: ./.github/actions/setup-just
+
+      - name: Run Go-flavored lints
+        run: just lint-go-all
+
+  test:
+    name: "test (${{ matrix.os }})"
+    runs-on: ${{ matrix.os }}
+    # Each slot publishes its own coverage report to GitHub's code
+    # coverage API, which needs code-quality: write on top of the read
+    # scopes (contents for checkout, pull-requests so the upload action
+    # can resolve the PR number on push events). Job-level permissions
+    # replace the workflow default, so the reads are listed explicitly.
+    permissions:
+      contents: read
+      code-quality: write
+      pull-requests: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - macos-15
+          - windows-2025
+    steps:
+      - name: Harden the runner
+        if: runner.os == 'Linux'
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: go.mod
+          check-latest: false
+
+      - name: Set up just
+        uses: ./.github/actions/setup-just
+
+      - name: Run tests with coverage
+        run: just cover-binary
+
+      - name: Run tests with race detector
+        run: just test-race
+
+      # Publish this slot's report under a per-OS label so each platform
+      # shows on its own, and stash the binary coverage data for the
+      # coverage job to merge into the combined report.
+      - name: Upload ${{ matrix.os }} coverage report
+        uses: actions/upload-code-coverage@abb5995db9e0199b0e2bb9dbd136fce4cb1ec4d3 # v1.3.0
+        with:
+          file: coverage.xml
+          language: Go
+          label: code-coverage/${{ matrix.os }}
+          fail-on-error: false
+
+      - name: Upload ${{ matrix.os }} coverage data
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: covdata-${{ matrix.os }}
+          path: coverage.covdata
+          if-no-files-found: error
+          retention-days: 1
+
+  coverage:
+    name: coverage
+    runs-on: ubuntu-24.04
+    needs: test
+    # Publishes the merged report to the code coverage API (same scopes
+    # as the per-slot uploads in the test job).
+    permissions:
+      contents: read
+      code-quality: write
+      pull-requests: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: go.mod
+          check-latest: false
+
+      - name: Set up just
+        uses: ./.github/actions/setup-just
+
+      - name: Download per-slot coverage data
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: coverage.covdata.slots
+          pattern: covdata-*
+
+      - name: Merge coverage and render the combined report
+        run: just cover-merge
+
+      - name: Upload combined coverage report
+        uses: actions/upload-code-coverage@abb5995db9e0199b0e2bb9dbd136fce4cb1ec4d3 # v1.3.0
+        with:
+          file: coverage.xml
+          language: Go
+          label: code-coverage/combined
+          fail-on-error: false
+
+  vuln:
+    name: vuln
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: go.mod
+          check-latest: false
+
+      - name: Set up just
+        uses: ./.github/actions/setup-just
+
+      - name: Run govulncheck
+        run: just vuln
+
+  vendor-check:
+    name: vendor-check
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: go.mod
+          check-latest: false
+
+      - name: Set up just
+        uses: ./.github/actions/setup-just
+
+      - name: Check vendor drift
+        run: just vendor-check

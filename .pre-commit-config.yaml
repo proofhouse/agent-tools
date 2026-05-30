@@ -1,0 +1,124 @@
+---
+default_stages: [commit-msg, pre-commit, pre-push]
+
+# Hooks never touch vendored third-party code; that source is reviewed
+# at PR time as part of vendor-tidy, not reformatted to match this
+# project's style. Same applies to Vale's synced style packages and
+# build output.
+exclude: ^(vendor/|\.vale/(Google|write-good|proselint|ai-tells.*)/|bin/|dist/)
+
+repos:
+  - repo: builtin
+    hooks:
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: end-of-file-fixer
+      - id: fix-byte-order-marker
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: cba56bcde1fdd01c1deb3f945e69764c291a6530  # frozen: v1.38.0
+    hooks:
+      - id: yamllint
+        name: Check YAML files with yamllint
+        entry: yamllint -c .yamllint.yaml --strict
+        types: [yaml]
+
+  - repo: https://github.com/errata-ai/vale
+    rev: f544f4923eb1c7d322c18e35f96333ef8ac29efa  # frozen: v3.13.1
+    hooks:
+      # Scope the pre-commit-stage hook to the file types .vale.ini
+      # actually configures rules for (Markdown + Go source). The
+      # upstream hook defaults to types: [text], which passes every
+      # text file plus .git/COMMIT_EDITMSG; vale then parses the
+      # commit-message buffer as plain text (no extension), backticks
+      # lose their code-span meaning, and rules like Google.Spacing
+      # flag dotted identifiers even inside backticks. The
+      # commit-msg-stage hook below (tools/vale-commit-msg.sh) handles
+      # the commit message itself with a strip-and-vale pipeline that
+      # drops git's helper comments and the verbose-diff scissors
+      # block before invoking vale. Extend types_or when .vale.ini
+      # grows a new section.
+      - id: vale
+        types_or: [markdown, go]
+
+  - repo: https://github.com/rvben/rumdl-pre-commit
+    rev: 9f07a8f89dc360f6db3cc0ad9c1953148e9f706f  # frozen: v0.1.44
+    hooks:
+      - id: rumdl-fmt
+      - id: rumdl
+
+  - repo: local
+    hooks:
+      - id: biome-check
+        name: biome check
+        entry: biome check --write --files-ignore-unknown=true --no-errors-on-unmatched
+        language: system
+        types: [text]
+        files: "\\.(jsx?|tsx?|c(js|ts)|m(js|ts)|d\\.(ts|cts|mts)|jsonc?|json5|css|svelte|vue|astro|graphql|gql)$"
+
+      - id: golangci-lint-fmt
+        name: golangci-lint fmt
+        entry: just format-go
+        language: system
+        types: [go]
+        pass_filenames: false
+
+      - id: golangci-lint
+        name: golangci-lint
+        entry: just lint-go
+        language: system
+        types: [go]
+        pass_filenames: false
+
+      - id: vendor-tidy
+        name: go mod tidy + vendor drift check
+        entry: bash -c 'go mod tidy && go mod vendor && git diff --exit-code -- go.mod go.sum vendor/'
+        language: system
+        files: ^(go\.mod|go\.sum|vendor/)
+        pass_filenames: false
+
+      - id: vale-commit-msg
+        name: vale (commit message)
+        entry: tools/vale-commit-msg.sh
+        language: system
+        stages: [commit-msg]
+        always_run: true
+
+      - id: commitlint
+        name: commitlint
+        entry: go tool commitlint lint --message
+        language: system
+        stages: [commit-msg]
+        always_run: true
+
+      - id: commit-trailers
+        name: commit-trailers
+        entry: go run ./tools/commit-trailers --message
+        language: system
+        stages: [commit-msg]
+        always_run: true
+
+      # Tree-wide spell check at pre-commit and pre-push. Scoped off
+      # the commit-msg stage so the cspell-commit hook below owns the
+      # commit buffer with worktree-safe config resolution.
+      - id: cspell
+        name: cspell
+        entry: cspell --config .cspell.jsonc --no-summary --no-progress --no-must-find-files
+        language: system
+        stages: [pre-commit, pre-push]
+        types: [text]
+
+      # Commit-message spell check through the shared wrapper, which
+      # reads the buffer on a worktree-relative virtual path so cspell
+      # resolves this worktree's dictionary (see
+      # tools/cspell-commit-msg.sh).
+      - id: cspell-commit
+        name: cspell-commit
+        entry: tools/cspell-commit-msg.sh
+        language: system
+        stages: [commit-msg]
+        always_run: true

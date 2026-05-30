@@ -1,0 +1,27 @@
+[global]
+disable = [
+  "MD013", # Line length — we don't hardwrap markdown.
+  "MD033", # Inline HTML — needed for cosign/badge embeds.
+]
+respect_gitignore = true
+exclude = [
+  ".git",
+  ".vale",
+  "tmp",
+  "vendor",
+  ".claude/skills/*/SKILL.md",
+  "CODEOWNERS",
+  "LICENSE",
+]
+
+[MD003]
+style = "atx"
+
+[MD004]
+style = "dash"
+
+[MD025]
+front_matter_title = ""
+
+[MD048]
+style = "backtick"
