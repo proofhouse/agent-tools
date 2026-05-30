@@ -1,0 +1,71 @@
+---
+# Self-hosted Renovate. Authenticates as the proofhouse-renovate[bot]
+# GitHub App so commits carry a DCO sign-off matching the committer (the
+# stock Mend hosted App commits as renovate[bot], which can't match this
+# repo's gitAuthor + gitSignOff pair). Mounts the host docker socket so
+# the gomodTidy post-update step can spin up a sidecar Go container.
+#
+# End-to-end execution depends on the proofhouse-renovate App being
+# registered and RENOVATE_APP_ID / RENOVATE_PRIVATE_KEY secrets being set;
+# until then this workflow is wired but inert.
+name: Renovate
+
+on:
+  schedule:
+    # Hourly on weekdays, every two hours on weekends. Matches Cilium's
+    # cadence: fast enough to catch CVEs the same business day, slack
+    # enough to avoid wasting API budget on quiet weekends.
+    - cron: "0 * * * 1-5"
+    - cron: "0 */2 * * 6,0"
+  workflow_dispatch:
+    inputs:
+      renovate_log_level_debug:
+        type: boolean
+        description: "Run Renovate with debug log levels"
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  renovate:
+    name: Run self-hosted Renovate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      # GITHUB_TOKEN can't satisfy this repo's Renovate scope (Issues +
+      # Pull requests + Workflows R/W) and can't push workflow files. Mint
+      # a short-lived installation token from the proofhouse-renovate App
+      # credentials instead. Output is `token` (the older Cilium fork
+      # cilium/actions-app-token exposed `app_token`).
+      - name: Get token
+        id: get_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.RENOVATE_CLIENT_ID }}
+          private-key: ${{ secrets.RENOVATE_PRIVATE_KEY }}
+
+      # Renovate re-clones the repo inside its own container, but the
+      # action needs the config file on the runner filesystem to bind
+      # into the container.
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Self-hosted Renovate
+        uses: renovatebot/github-action@693b9ef15eec82123529a37c782242f091365961 # v46.1.14
+        env:
+          LOG_LEVEL: ${{ github.event.inputs.renovate_log_level_debug == 'false' && 'INFO' || 'DEBUG' }}
+        with:
+          # renovate: datasource=github-releases depName=renovatebot/renovate
+          renovate-version: 43.205.0
+          configurationFile: .github/renovate.json5
+          token: ${{ steps.get_token.outputs.token }}
+          # gomodTidy launches a Go sidecar; that requires the Renovate
+          # container to reach the host docker daemon.
+          mount-docker-socket: true
+          docker-user: root
+          docker-cmd-file: .github/actions/renovate/entrypoint.sh

@@ -1,0 +1,37 @@
+---
+# PR gate that catches broken Renovate config before it lands on main.
+# The cron Renovate workflow only runs on schedule, so a malformed config
+# on main can sit unnoticed until the next firing. Running the validator
+# from the same SHA-pinned image the actual Renovate workflow uses keeps
+# the two in lockstep.
+name: Validate Renovate configuration
+
+on:
+  pull_request:
+    paths:
+      # Catch nested renovate configs too if/when subprojects appear.
+      - "**renovate.json5"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Renovate configuration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout configuration
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Validate configuration
+        run: |
+          # renovate: datasource=docker depName=ghcr.io/renovatebot/renovate
+          RENOVATE_IMAGE="ghcr.io/renovatebot/renovate:43.205.0@sha256:90fa4f314be425066775a92402f183805134d9c8acd52bcfd120eb7dbe71dd41"
+          docker run --rm --entrypoint renovate-config-validator \
+            -v "${{ github.workspace }}/.github/renovate.json5:/renovate.json5" \
+            "${RENOVATE_IMAGE}" /renovate.json5

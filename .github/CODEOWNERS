@@ -1,0 +1,20 @@
+# Review routing for agent-tools. GitHub applies the last matching
+# rule, so the supply-chain rules below override the default for the
+# paths they name. Owners are org teams (sole member @tbhb for now)
+# created with push access, the minimum GitHub requires for a team to
+# count as a code owner.
+
+# Default owner for everything.
+*           @proofhouse/maintainers
+
+# Supply-chain and CI surface. The /.github/ rule already covers
+# renovate.json5 and every workflow, so neither needs its own line.
+/.github/   @proofhouse/security
+/vendor/    @proofhouse/security
+/go.mod     @proofhouse/security
+/go.sum     @proofhouse/security
+
+# Release-pipeline ownership (@proofhouse/release-engineering) lands
+# with .goreleaser.yaml and the release workflow. Those files do not
+# exist yet, so a rule here would point at nothing and fail the
+# path-existence gate; it arrives alongside the release pipeline.
