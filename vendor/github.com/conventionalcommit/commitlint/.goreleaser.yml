@@ -1,0 +1,45 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    ldflags:
+      - -s -w -X github.com/conventionalcommit/commitlint/internal.version=v{{.Major}}.{{.Minor}}.{{.Patch}} -X github.com/conventionalcommit/commitlint/internal.commit={{.FullCommit}} -X github.com/conventionalcommit/commitlint/internal.buildTime={{.Date}}
+    flags:
+      - -tags=urfave_cli_no_docs
+
+archives:
+  - name_template: "{{ .ProjectName }}_v{{.Major}}.{{.Minor}}.{{.Patch}}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE.md
+      - README.md
+
+checksum:
+  name_template: "{{ .ProjectName }}_v{{.Major}}.{{.Minor}}.{{.Patch}}_checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ .Tag }}"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^style:"
+      - "^chore:"
+      - "^refactor:"
+      - "^build:"
+      - "^ci:"
+
+release:
+  draft: true
