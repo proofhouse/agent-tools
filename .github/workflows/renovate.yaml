@@ -1,13 +1,19 @@
 ---
-# Self-hosted Renovate. Authenticates as the proofhouse-renovate[bot]
-# GitHub App so commits carry a DCO sign-off matching the committer (the
-# stock Mend hosted App commits as renovate[bot], which can't match this
-# repo's gitAuthor + gitSignOff pair). Mounts the host docker socket so
-# the gomodTidy post-update step can spin up a sidecar Go container.
+# Self-hosted Renovate, delegated to the shared reusable workflow in
+# proofhouse/github-actions. That workflow mints a proofhouse-renovate[bot]
+# GitHub App token, checks out this repo's tree, and runs Renovate against
+# .github/renovate.json5; `secrets: inherit` hands it the
+# RENOVATE_CLIENT_ID / RENOVATE_PRIVATE_KEY App credentials.
+#
+# The schedule and workflow_dispatch triggers live here because a reusable
+# workflow can't carry its own caller-side triggers. gomodTidy now runs
+# under the shared workflow's install-based Go toolchain rather than a
+# docker-socket sidecar, so this repo no longer needs a local action or
+# custom entrypoint.
 #
 # End-to-end execution depends on the proofhouse-renovate App being
-# registered and RENOVATE_APP_ID / RENOVATE_PRIVATE_KEY secrets being set;
-# until then this workflow is wired but inert.
+# registered and the RENOVATE_CLIENT_ID / RENOVATE_PRIVATE_KEY secrets
+# being set; until then this workflow is wired but inert.
 name: Renovate
 
 on:
@@ -30,42 +36,12 @@ permissions:
 jobs:
   renovate:
     name: Run self-hosted Renovate
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    uses: proofhouse/github-actions/.github/workflows/renovate.yaml@c55eeb3115d95f6b8777538b4d6f49d48830e199 # v0.2.0
     permissions:
       contents: read
-    steps:
-      # GITHUB_TOKEN can't satisfy this repo's Renovate scope (Issues +
-      # Pull requests + Workflows R/W) and can't push workflow files. Mint
-      # a short-lived installation token from the proofhouse-renovate App
-      # credentials instead. Output is `token` (the older Cilium fork
-      # cilium/actions-app-token exposed `app_token`).
-      - name: Get token
-        id: get_token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          client-id: ${{ secrets.RENOVATE_CLIENT_ID }}
-          private-key: ${{ secrets.RENOVATE_PRIVATE_KEY }}
-
-      # Renovate re-clones the repo inside its own container, but the
-      # action needs the config file on the runner filesystem to bind
-      # into the container.
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-
-      - name: Self-hosted Renovate
-        uses: renovatebot/github-action@693b9ef15eec82123529a37c782242f091365961 # v46.1.14
-        env:
-          LOG_LEVEL: ${{ github.event.inputs.renovate_log_level_debug == 'false' && 'INFO' || 'DEBUG' }}
-        with:
-          # renovate: datasource=github-releases depName=renovatebot/renovate
-          renovate-version: 43.205.0
-          configurationFile: .github/renovate.json5
-          token: ${{ steps.get_token.outputs.token }}
-          # gomodTidy launches a Go sidecar; that requires the Renovate
-          # container to reach the host docker daemon.
-          mount-docker-socket: true
-          docker-user: root
-          docker-cmd-file: .github/actions/renovate/entrypoint.sh
+    # On a scheduled run the shared workflow already forces DEBUG, so the
+    # forwarded value only changes a manual dispatch (where it can drop to
+    # INFO). The guard keeps the expression a real boolean on schedule.
+    with:
+      renovate_log_level_debug: ${{ github.event_name != 'workflow_dispatch' || inputs.renovate_log_level_debug }}
+    secrets: inherit

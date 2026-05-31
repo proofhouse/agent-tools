@@ -38,7 +38,7 @@
 
   // `gomodTidy` runs `go mod tidy` after a Go-module update so go.sum
   // and the indirect graph stay coherent in the same PR. Self-hosting
-  // means the project picks the Go toolchain version the sidecar uses
+  // means the project picks the Go toolchain version Renovate installs
   // (matches go.mod's toolchain pin, not whatever the hosted Mend App
   // ships).
   postUpdateOptions: ["gomodTidy"],
@@ -113,38 +113,6 @@
       managerFilePatterns: ["/^Justfile$/"],
       matchStrings: [
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+\\S+_version := \"(?<currentValue>.*?)\"\\s+\\S+_image := \".*?@(?<currentDigest>sha256:[a-f0-9]+)\"",
-      ],
-    },
-
-    // .github/workflows/renovate-config-validator.yaml. Pins the
-    // Renovate engine image used by the validator. Matches the
-    // RENOVATE_IMAGE=... shell assignment.
-    //
-    //   # renovate: datasource=docker depName=ghcr.io/renovatebot/renovate
-    //   RENOVATE_IMAGE="ghcr.io/renovatebot/renovate:43.205.0@sha256:..."
-    {
-      customType: "regex",
-      managerFilePatterns: [
-        "/^\\.github/workflows/[^/]+\\.ya?ml$/",
-      ],
-      matchStrings: [
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+RENOVATE_IMAGE=\"[^:]+:(?<currentValue>[^@]+)@(?<currentDigest>sha256:[a-f0-9]+)\"",
-      ],
-    },
-
-    // .github/workflows/renovate.yaml. Pins the Renovate engine version
-    // the self-hosted action downloads at runtime. No digest — the
-    // github-action input is a release tag, not a container ref.
-    //
-    //   # renovate: datasource=github-releases depName=renovatebot/renovate
-    //   renovate-version: 43.205.0
-    {
-      customType: "regex",
-      managerFilePatterns: [
-        "/^\\.github/workflows/renovate\\.yaml$/",
-      ],
-      matchStrings: [
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+renovate-version:\\s+(?<currentValue>\\S+)",
       ],
     },
   ],
