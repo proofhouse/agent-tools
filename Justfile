@@ -510,12 +510,12 @@ gitleaks:
 # OSV malicious-package registry flags as malware under the MAL- ID prefix
 # (S2C2F ING-3). gomodscan reads vendor/modules.txt for the module set, so
 # run `just vendor` first when it is stale. Exits 1 on findings, 2 on tool
-# failure. Pinned to @latest until release management lands in this repo
-# and the version can be pinned like the other `go tool` dependencies.
+# failure. Tracked as a `go tool` dependency pinned to v0.1.0 in go.mod;
+# bump it with `go get -tool` when a new gomodscan release lands.
 
 # Scan each vendored module for supply-chain concerns in one pass.
 gomodscan:
-    go run github.com/proofhouse/gomodscan/cmd/gomodscan@latest
+    go tool gomodscan
 
 # Unlike the gomodscan gate recipe, a findings exit (1) does not fail
 # this recipe — Code Scanning surfaces severity downstream — but a tool
@@ -525,7 +525,7 @@ gomodscan:
 gomodscan-sarif file:
     #!/usr/bin/env bash
     set -uo pipefail
-    go run github.com/proofhouse/gomodscan/cmd/gomodscan@latest -format sarif > "{{ file }}"
+    go tool gomodscan -format sarif > "{{ file }}"
     rc=$?
     if [ "$rc" -gt 1 ]; then exit "$rc"; fi
 
