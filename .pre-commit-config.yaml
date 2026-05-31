@@ -28,7 +28,7 @@ repos:
         types: [yaml]
 
   - repo: https://github.com/errata-ai/vale
-    rev: f544f4923eb1c7d322c18e35f96333ef8ac29efa  # frozen: v3.13.1
+    rev: 810868b21c6c88cf78dfb8960b1afc78d1b7f6a8  # frozen: v3.14.2
     hooks:
       # Scope the pre-commit-stage hook to the file types .vale.ini
       # actually configures rules for (Markdown + Go source). The
