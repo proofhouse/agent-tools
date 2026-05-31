@@ -17,11 +17,5 @@ threshold:
 exclude:
   paths:
     # Binary entry points hold os.Args parsing and os.Exit glue that
-    # can't run from a go test process. Both scanners under tools/
-    # already split that glue into a testable realMain helper, and
-    # this exclusion list documents the same boundary for the rest.
+    # can't run from a go test process.
     - ^cmd/[^/]+/main\.go$
-    - ^tools/commit-trailers/main\.go$
-    # exitcode declares three integer constants and nothing else.
-    # No executable lines to cover.
-    - ^tools/internal/exitcode/

@@ -328,20 +328,16 @@ lint-workflows:
 
 # Surfaces message problems while iterating rather than at commit time.
 # Reads the draft from the repo-root COMMIT_AGENTMSG file (gitignored;
-# see AGENTS.md for the workflow). Runs the four commit-msg-stage checks
-# in order: vale under the commit scope (via the shared wrapper, which
-# now applies ai-tells-commits), cspell with the commit-msg dictionary,
-# commitlint for the Conventional Commits shape, and commit-trailers for
-# trailer rules. The real gate stays the prek commit-msg hook on
-# .git/COMMIT_EDITMSG; this recipe only mirrors it. Commit the validated
-# draft with `git commit -F COMMIT_AGENTMSG`.
+# see AGENTS.md for the workflow) and runs the commit-msg stage through
+# prek, which fires the four shared hooks from proofhouse/pre-commit-hooks:
+# commit-trailers, commitlint, vale-commit-msg, and cspell-commit-msg. The
+# real gate stays the prek commit-msg hook on .git/COMMIT_EDITMSG; this
+# recipe only mirrors it. Commit the validated draft with `git commit -F
+# COMMIT_AGENTMSG`.
 
 # Pre-validate a drafted commit message against the commit-msg gates.
 lint-commit-msg:
-    tools/vale-commit-msg.sh COMMIT_AGENTMSG
-    tools/cspell-commit-msg.sh COMMIT_AGENTMSG
-    go tool commitlint lint --message COMMIT_AGENTMSG
-    go run ./tools/commit-trailers --message COMMIT_AGENTMSG
+    prek run --stage commit-msg --commit-msg-filename COMMIT_AGENTMSG
 
 # --- Test ---
 

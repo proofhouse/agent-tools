@@ -1,5 +1,5 @@
 ---
-default_stages: [commit-msg, pre-commit, pre-push]
+default_stages: [pre-commit, pre-push]
 
 # Hooks never touch vendored third-party code; that source is reviewed
 # at PR time as part of vendor-tidy, not reformatted to match this
@@ -37,8 +37,8 @@ repos:
       # commit-message buffer as plain text (no extension), backticks
       # lose their code-span meaning, and rules like Google.Spacing
       # flag dotted identifiers even inside backticks. The
-      # commit-msg-stage hook below (tools/vale-commit-msg.sh) handles
-      # the commit message itself with a strip-and-vale pipeline that
+      # vale-commit-msg hook from proofhouse/pre-commit-hooks (below)
+      # handles the commit message with a strip-and-vale pipeline that
       # drops git's helper comments and the verbose-diff scissors
       # block before invoking vale. Extend types_or when .vale.ini
       # grows a new section.
@@ -50,6 +50,21 @@ repos:
     hooks:
       - id: rumdl-fmt
       - id: rumdl
+
+  # Shared commit-msg gates. All four run on the commit-msg stage (see the
+  # manifest); commitlint and commit-trailers need only bash/git, while
+  # vale-commit-msg and cspell-commit-msg lean on this repo's vale/cspell
+  # plus the commit-message scope in .vale.ini and .cspell.jsonc.
+  # commitlint here is a bash port of the retired Go commitlint binary.
+  # Pinned by SHA with a `# frozen:` tag comment so Renovate's pre-commit
+  # manager tracks it, the same as the other hook repos above.
+  - repo: https://github.com/proofhouse/pre-commit-hooks
+    rev: b82937596ead954b40e67a38b5a605765cfc9d22  # frozen: v0.1.0
+    hooks:
+      - id: commit-trailers
+      - id: commitlint
+      - id: vale-commit-msg
+      - id: cspell-commit-msg
 
   - repo: local
     hooks:
@@ -81,44 +96,13 @@ repos:
         files: ^(go\.mod|go\.sum|vendor/)
         pass_filenames: false
 
-      - id: vale-commit-msg
-        name: vale (commit message)
-        entry: tools/vale-commit-msg.sh
-        language: system
-        stages: [commit-msg]
-        always_run: true
-
-      - id: commitlint
-        name: commitlint
-        entry: go tool commitlint lint --message
-        language: system
-        stages: [commit-msg]
-        always_run: true
-
-      - id: commit-trailers
-        name: commit-trailers
-        entry: go run ./tools/commit-trailers --message
-        language: system
-        stages: [commit-msg]
-        always_run: true
-
       # Tree-wide spell check at pre-commit and pre-push. Scoped off
-      # the commit-msg stage so the cspell-commit hook below owns the
-      # commit buffer with worktree-safe config resolution.
+      # the commit-msg stage so the cspell-commit-msg hook from
+      # proofhouse/pre-commit-hooks owns the commit buffer with
+      # worktree-safe config resolution.
       - id: cspell
         name: cspell
         entry: cspell --config .cspell.jsonc --no-summary --no-progress --no-must-find-files
         language: system
         stages: [pre-commit, pre-push]
         types: [text]
-
-      # Commit-message spell check through the shared wrapper, which
-      # reads the buffer on a worktree-relative virtual path so cspell
-      # resolves this worktree's dictionary (see
-      # tools/cspell-commit-msg.sh).
-      - id: cspell-commit
-        name: cspell-commit
-        entry: tools/cspell-commit-msg.sh
-        language: system
-        stages: [commit-msg]
-        always_run: true
