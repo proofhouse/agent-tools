@@ -622,13 +622,15 @@ prek-all:
 prek-install:
     prek install -t commit-msg -t pre-commit -t pre-push
 
-# `cog changelog` emits Markdown without an H1; the pipeline prepends one
-# and runs rumdl with MD024 (duplicate headings) disabled so adjacent
-# releases with the same section names don't fight the linter.
+# `cog changelog` emits Markdown without an H1; the pipeline prepends one,
+# writes the file, then lints it in place so the CHANGELOG.md
+# per-file-ignores in .rumdl.toml apply (rumdl matches those globs against
+# on-disk paths, not stdin). MD024 (duplicate headings) lives there.
 
 # Generate the full CHANGELOG.md from Conventional Commit history.
 generate-changelog:
-    cog changelog | { echo "# Changelog"; cat; } | rumdl check -d MD024 --fix --stdin > CHANGELOG.md
+    cog changelog | { echo "# Changelog"; cat; } > CHANGELOG.md
+    rumdl check --fix CHANGELOG.md
 
 # Useful during release prep to see what `cog changelog` will emit before
 # committing the regeneration.
@@ -638,10 +640,12 @@ preview-changelog:
     cog changelog --at $(git describe --tags)..HEAD -t full_hash | rumdl check -d MD041 --fix --stdin
 
 # Pass a version, or omit it for HEAD. Output goes to stdout; pipe to a
-# file or paste into the GitHub release body.
+# file or paste into the GitHub release body. MD041 is disabled for the
+# heading-less fragment; without --isolated, MD013 stays off via
+# .rumdl.toml so the full commit hashes are never wrapped.
 
 # Generate release notes for a specific version.
 [script]
 generate-release-notes version="":
     v=$([[ -n "{{ version }}" ]] && echo "v{{ version }}" || echo "..$(git rev-parse HEAD)")
-    cog changelog --at $v -t full_hash | rumdl check -d MD024,MD041 --isolated --fix --stdin
+    cog changelog --at $v -t full_hash | rumdl check -d MD041 --fix --stdin
