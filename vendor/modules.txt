@@ -72,24 +72,6 @@ github.com/boumenot/gocover-cobertura
 # github.com/clipperhouse/uax29/v2 v2.7.0
 ## explicit; go 1.18
 github.com/clipperhouse/uax29/v2/graphemes
-# github.com/conventionalcommit/commitlint v0.12.0
-## explicit; go 1.24.0
-github.com/conventionalcommit/commitlint
-github.com/conventionalcommit/commitlint/config
-github.com/conventionalcommit/commitlint/formatter
-github.com/conventionalcommit/commitlint/internal
-github.com/conventionalcommit/commitlint/internal/casing
-github.com/conventionalcommit/commitlint/internal/cmd
-github.com/conventionalcommit/commitlint/internal/hook
-github.com/conventionalcommit/commitlint/lint
-github.com/conventionalcommit/commitlint/registry
-github.com/conventionalcommit/commitlint/rule
-# github.com/conventionalcommit/parser v0.8.0
-## explicit; go 1.17
-github.com/conventionalcommit/parser
-# github.com/cpuguy83/go-md2man/v2 v2.0.7
-## explicit; go 1.12
-github.com/cpuguy83/go-md2man/v2/md2man
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
@@ -182,9 +164,6 @@ github.com/robfig/cron/v3
 github.com/rs/zerolog
 github.com/rs/zerolog/internal/cbor
 github.com/rs/zerolog/internal/json
-# github.com/russross/blackfriday/v2 v2.1.0
-## explicit
-github.com/russross/blackfriday/v2
 # github.com/sagikazarmark/locafero v0.12.0
 ## explicit; go 1.23.0
 github.com/sagikazarmark/locafero
@@ -220,9 +199,6 @@ github.com/stretchr/testify/require
 # github.com/subosito/gotenv v1.6.0
 ## explicit; go 1.18
 github.com/subosito/gotenv
-# github.com/urfave/cli/v2 v2.27.7
-## explicit; go 1.18
-github.com/urfave/cli/v2
 # github.com/vladopajic/go-test-coverage/v2 v2.18.8
 ## explicit; go 1.26
 github.com/vladopajic/go-test-coverage/v2
@@ -232,9 +208,6 @@ github.com/vladopajic/go-test-coverage/v2/pkg/testcoverage/badgestorer
 github.com/vladopajic/go-test-coverage/v2/pkg/testcoverage/coverage
 github.com/vladopajic/go-test-coverage/v2/pkg/testcoverage/logger
 github.com/vladopajic/go-test-coverage/v2/pkg/testcoverage/path
-# github.com/xrash/smetrics v0.0.0-20250705151800-55b8f293f342
-## explicit; go 1.15
-github.com/xrash/smetrics
 # go.yaml.in/yaml/v3 v3.0.4
 ## explicit; go 1.16
 go.yaml.in/yaml/v3
@@ -333,9 +306,6 @@ golang.org/x/vuln/internal/traces
 golang.org/x/vuln/internal/vulncheck
 golang.org/x/vuln/internal/web
 golang.org/x/vuln/scan
-# gopkg.in/yaml.v2 v2.4.0
-## explicit; go 1.15
-gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
