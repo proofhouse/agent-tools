@@ -1,9 +1,9 @@
 ---
-# PR gate that catches broken Renovate config before it lands on main.
-# The cron Renovate workflow only runs on schedule, so a malformed config
-# on main can sit unnoticed until the next firing. Running the validator
-# from the same SHA-pinned image the actual Renovate workflow uses keeps
-# the two in lockstep.
+# PR gate that catches broken Renovate config before it lands on main,
+# delegated to the shared reusable workflow in proofhouse/github-actions.
+# That workflow runs renovate-config-validator from the same SHA-pinned
+# Renovate image the cron workflow uses, keeping the two in lockstep.
+# `config_path` points it at this repo's config.
 name: Validate Renovate configuration
 
 on:
@@ -18,20 +18,12 @@ permissions:
 jobs:
   validate:
     name: Validate Renovate configuration
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    # Pinned reusable-workflow path + 40-char SHA + tag comment overruns
+    # yamllint's 120-col limit and can't be wrapped; Renovate keeps the
+    # SHA and tag in sync inline.
+    # yamllint disable-line rule:line-length
+    uses: proofhouse/github-actions/.github/workflows/renovate-config-validator.yaml@c55eeb3115d95f6b8777538b4d6f49d48830e199 # v0.2.0
     permissions:
       contents: read
-    steps:
-      - name: Checkout configuration
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-
-      - name: Validate configuration
-        run: |
-          # renovate: datasource=docker depName=ghcr.io/renovatebot/renovate
-          RENOVATE_IMAGE="ghcr.io/renovatebot/renovate:43.205.0@sha256:90fa4f314be425066775a92402f183805134d9c8acd52bcfd120eb7dbe71dd41"
-          docker run --rm --entrypoint renovate-config-validator \
-            -v "${{ github.workspace }}/.github/renovate.json5:/renovate.json5" \
-            "${RENOVATE_IMAGE}" /renovate.json5
+    with:
+      config_path: .github/renovate.json5
