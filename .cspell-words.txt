@@ -291,3 +291,8 @@ covdir
 gocoverdir
 textfmt
 slotsdir
+argjson
+fixgo
+gremlins
+modernize
+sysmsg
