@@ -54,7 +54,7 @@ jobs:
           check-latest: false
 
       - name: Set up just
-        uses: ./.github/actions/setup-just
+        uses: proofhouse/github-actions/.github/actions/setup-just@c55eeb3115d95f6b8777538b4d6f49d48830e199 # v0.2.0
 
       - name: Run Go-flavored lints
         run: just lint-go-all
@@ -98,7 +98,7 @@ jobs:
           check-latest: false
 
       - name: Set up just
-        uses: ./.github/actions/setup-just
+        uses: proofhouse/github-actions/.github/actions/setup-just@c55eeb3115d95f6b8777538b4d6f49d48830e199 # v0.2.0
 
       - name: Run tests with coverage
         run: just cover-binary
@@ -153,7 +153,7 @@ jobs:
           check-latest: false
 
       - name: Set up just
-        uses: ./.github/actions/setup-just
+        uses: proofhouse/github-actions/.github/actions/setup-just@c55eeb3115d95f6b8777538b4d6f49d48830e199 # v0.2.0
 
       - name: Download per-slot coverage data
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -193,7 +193,7 @@ jobs:
           check-latest: false
 
       - name: Set up just
-        uses: ./.github/actions/setup-just
+        uses: proofhouse/github-actions/.github/actions/setup-just@c55eeb3115d95f6b8777538b4d6f49d48830e199 # v0.2.0
 
       - name: Run govulncheck
         run: just vuln
@@ -219,7 +219,7 @@ jobs:
           check-latest: false
 
       - name: Set up just
-        uses: ./.github/actions/setup-just
+        uses: proofhouse/github-actions/.github/actions/setup-just@c55eeb3115d95f6b8777538b4d6f49d48830e199 # v0.2.0
 
       - name: Check vendor drift
         run: just vendor-check
