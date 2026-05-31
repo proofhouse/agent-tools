@@ -1,47 +1,35 @@
----
-# Lint every workflow under `.github/workflows/` via actionlint. The
-# job runs on every PR that touches a workflow file and on every push
-# to `main`, so the lint gate guards both ends of the integration
-# path. actionlint is pinned as a `go tool` dep in go.mod, matching
-# the local `just lint-workflows` recipe; both build from the same
-# source tree.
-
 name: lint-workflows
 
+# Lint every workflow under `.github/workflows/` with actionlint, delegated to
+# the shared reusable workflow in proofhouse/github-actions so the gate runs
+# the same SHA-pinned actionlint image everywhere instead of each repository
+# carrying its own setup.
+#
+# The triggers live here because a reusable workflow can't carry its own
+# caller-side triggers. The path filter and a read-only token are all the
+# shared entry point needs: it takes no inputs or secrets and runs actionlint
+# against the caller's tree, guarding both the pull-request and push-to-main
+# ends of the integration path.
+
 on:
+  pull_request:
+    paths:
+      - .github/workflows/**
   push:
     branches: [main]
-    paths: ['.github/workflows/**']
-  pull_request:
-    paths: ['.github/workflows/**']
+    paths:
+      - .github/workflows/**
 
 permissions:
   contents: read
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
 jobs:
-  actionlint:
-    name: actionlint
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Harden the runner
-        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
-        with:
-          egress-policy: audit
-
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-
-      - name: Set up Go
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
-        with:
-          go-version-file: go.mod
-          check-latest: false
-
-      - name: Run actionlint
-        run: go tool actionlint
+  lint-workflows:
+    name: lint-workflows
+    # Pinned reusable-workflow path + 40-char SHA + tag comment overruns
+    # yamllint's 120-col limit and can't be wrapped; Renovate keeps the
+    # SHA and tag in sync inline.
+    # yamllint disable-line rule:line-length
+    uses: proofhouse/github-actions/.github/workflows/lint-workflows.yml@c55eeb3115d95f6b8777538b4d6f49d48830e199 # v0.2.0
+    permissions:
+      contents: read
