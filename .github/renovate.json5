@@ -116,21 +116,6 @@
       ],
     },
 
-    // .github/actions/setup-just/action.yml. The `just-version` input
-    // default carries the marker inline, after the value, so the regex
-    // reads the value first and the marker second.
-    //
-    //   default: '1.51.0'  # renovate: datasource=github-releases depName=casey/just
-    {
-      customType: "regex",
-      managerFilePatterns: [
-        "/^\\.github/actions/[^/]+/action\\.ya?ml$/",
-      ],
-      matchStrings: [
-        "default: '(?<currentValue>.*?)'\\s+# renovate: datasource=(?<datasource>.*?) depName=(?<depName>\\S+)",
-      ],
-    },
-
     // .github/workflows/renovate-config-validator.yaml. Pins the
     // Renovate engine image used by the validator. Matches the
     // RENOVATE_IMAGE=... shell assignment.
