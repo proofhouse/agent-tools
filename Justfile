@@ -84,6 +84,24 @@ go_arch_lint_image := "docker.io/fe3dback/go-arch-lint:release-v1.15.0@sha256:5a
 
 go_arch_lint := 'DOCKER_CONFIG="$(mktemp -d)" PATH="$(dirname ' + container_runtime + '):$PATH" ' + container_runtime + ' run --rm -v "$(pwd):/app:ro" ' + go_arch_lint_image
 
+# actionlint version pin. Same Docker-pin pattern as golangci-lint and
+# go-arch-lint: the upstream image bundles actionlint (plus shellcheck) at
+# a known version, and Renovate tracks the version + digest pair via the
+# customManager in renovate.json5. This is the same image the reusable
+# lint-workflows.yml in proofhouse/github-actions runs, so `just
+# lint-workflows` and CI share one actionlint.
+#
+# renovate: datasource=docker depName=rhysd/actionlint
+
+actionlint_version := "1.7.12"
+actionlint_image := "docker.io/rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667"
+
+# actionlint invocation. Mounts the tree read-only since actionlint only
+# reads source. The bundled shellcheck lints `run:` blocks, matching what
+# the shared workflow applies in CI.
+
+actionlint := 'DOCKER_CONFIG="$(mktemp -d)" PATH="$(dirname ' + container_runtime + '):$PATH" ' + container_runtime + ' run --rm -v "$(pwd):/repo:ro" -w /repo ' + actionlint_image
+
 # Build metadata. `date` is the *commit author date* (UTC, ISO-8601),
 # not build invocation time, so two builds of the same commit produce
 # identical binaries. `source_date_epoch` exports the same instant as
@@ -317,14 +335,14 @@ lint-yaml *args:
 # and flags unknown actions, mis-typed expressions, shellcheck issues
 # inside `run:` blocks, and SHA-pin drift. Complements `lint-yaml` (which
 # checks YAML structure) with workflow-shape rules yamllint can't see.
-# Pinned as a `go tool` dep in go.mod so the local and CI versions stay
-# aligned and Renovate bumps the rule set via go.mod. The matching
-# `.github/workflows/lint-workflows.yml` invokes this recipe on every PR
-# that touches the workflow directory.
+# Runs from the SHA-pinned Docker image above (which bundles shellcheck),
+# the same image the reusable `.github/workflows/lint-workflows.yml`
+# delegates to in proofhouse/github-actions, so this local entrypoint and
+# the CI gate run one actionlint, both bumped by Renovate.
 
 # Lint GitHub Actions workflow files via actionlint.
 lint-workflows:
-    go tool actionlint
+    {{ actionlint }}
 
 # Surfaces message problems while iterating rather than at commit time.
 # Reads the draft from the repo-root COMMIT_AGENTMSG file (gitignored;
