@@ -1,51 +1,29 @@
 #!/usr/bin/env bash
-# Lint gate for Claude Code, driven by the project's `just` recipes:
-#   - Go:       `just fix-go`       (go fix x2, golangci-lint fmt + run --fix)
-#   - Prose:    `just lint-prose`   (vale; Markdown and Go comments)
-#   - Spelling: `just lint-spelling` (cspell; tree-wide, self-filtering)
+# Three-tier format/lint feedback for Claude Code, split by event:
 #
-# Two diff-driven, synchronous blocking points:
+#   PostToolUse   -- after each Edit/Write/MultiEdit, run FORMATTERS only on the
+#                    written file (just format-go / format-markdown). Mutates in
+#                    place, never blocks. Keeps the tree formatted as the agent
+#                    works; nudges a re-read when the file actually changed.
 #
-#   PostToolBatch -- once per batch of tool calls (a lone call still counts as
-#                    a batch), mid-turn. Lints the whole module when *.go or
-#                    .golangci.yml changed vs HEAD; vale/cspell run over the
-#                    changed files. A shared content fingerprint skips the
-#                    cold lint when nothing changed since the last run, so
-#                    read-only batches cost nothing.
+#   PostToolBatch -- after each batch, run the LINTERS (just lint-go, lint-prose,
+#                    lint-spelling) over the changed files, consolidate the
+#                    findings, and surface them as additionalContext with an
+#                    imperative directive to fix them all. It can't mechanically
+#                    block, but the agent is told to treat it as a required gate
+#                    (Stop is the mechanical backstop), not optional feedback.
 #
-#   Stop          -- when the agent tries to finish: the same lint as the hard
-#                    yield gate. When the tree is clean and Go *production*
-#                    code changed, it blocks ONCE per change-set with a
-#                    reminder checklist (tests, mutation, full lint).
+#   Stop          -- when the agent tries to finish, run the same linters and
+#                    BLOCK if any fail, forcing a fix before it hands back to the
+#                    user. The only hard gate, and the right place for one.
 #
-# Verified against the installed claude (see AGENTS.md): PostToolBatch fires
-# even for a single-call turn and blocks reliably. PostToolUse is unused --
-# it fires per individual call, so it re-lints redundantly across a parallel
-# batch; PostToolBatch collapses that to one run and defers intra-batch
-# intermediate states. Stop may not carry hookSpecificOutput, so blocks use
-# only top-level decision/reason (see emit_block).
-#
-# fix-go mutates files (formatting, autofixes); every run that touches Go
-# tells the agent to re-read those files before its next write.
-#
-# Toolchain failures (no container runtime, missing tool) never block: they
-# surface as a systemMessage so a broken toolchain can't trap the agent.
-#
-# Registered locally via .claude/settings.local.json (not committed).
+# Linters are read-only, so a shared content fingerprint lets Stop reuse
+# PostToolBatch's result instead of re-linting. Stop blocks with top-level
+# decision/reason only (it rejects hookSpecificOutput). Toolchain failures never
+# block. Registered locally via .claude/settings.local.json (not committed).
 set -euo pipefail
 
-# --- output (each exits) ---------------------------------------------------
-
-emit_block() {
-  # decision/reason/systemMessage are valid on both PostToolUse and Stop.
-  # hookSpecificOutput is NOT a valid field on Stop, so it is omitted -- a
-  # Stop block carrying it gets rejected by output validation and fails OPEN.
-  # shellcheck disable=SC2016  # $reason/$msg are jq variables, set via --arg
-  jq -n --arg reason "$1" --arg msg "$2" \
-    '{decision: "block", reason: $reason, systemMessage: $msg, suppressOutput: true}'
-  exit 0
-}
-
+# Feed the agent context for its next step (non-blocking), then exit.
 emit_context() {
   # shellcheck disable=SC2016  # $ctx/$event are jq variables, set via --arg
   jq -n --arg ctx "$1" --arg event "$event" \
@@ -53,15 +31,23 @@ emit_context() {
   exit 0
 }
 
+# Block (Stop only): top-level decision/reason -- no hookSpecificOutput, which
+# Stop rejects (a block carrying it fails open).
+emit_block() {
+  # shellcheck disable=SC2016  # $reason/$msg are jq variables, set via --arg
+  jq -n --arg reason "$1" --arg msg "$2" \
+    '{decision: "block", reason: $reason, systemMessage: $msg, suppressOutput: true}'
+  exit 0
+}
+
+# User-facing notice only (toolchain trouble); never blocks.
 emit_skip() {
   # shellcheck disable=SC2016  # $msg is a jq variable, set via --arg
   jq -n --arg msg "$1" '{suppressOutput: true, systemMessage: $msg}'
   exit 0
 }
 
-# --- linter runner ---------------------------------------------------------
-
-# Run a command, capturing stdout (findings) / stderr (tool chatter) / rc.
+# Run a command, capturing stdout (findings) / stderr (chatter) / rc.
 run_recipe() {
   if RUN_STDOUT=$("$@" 2>"$err_file"); then
     RUN_RC=0
@@ -73,7 +59,6 @@ run_recipe() {
 }
 
 # Toolchain trouble (not real findings) -> skip rather than trap the agent.
-# Matches a lowercased copy (no `grep -q`, which can SIGPIPE under pipefail).
 is_infra_failure() {
   local blob
   blob=$(printf '%s\n%s' "$1" "$2" | tr '[:upper:]' '[:lower:]')
@@ -86,9 +71,8 @@ is_infra_failure() {
   esac
 }
 
-# Distill linter output ($1 stdout, $2 stderr) into findings: strip ANSI, drop
-# just's echoed commands and golangci runner chatter, bound the size. Prefer
-# stdout; fall back to stderr.
+# Distill linter output ($1 stdout, $2 stderr): strip ANSI, drop just's echoed
+# commands and golangci runner chatter, bound the size. Prefer stdout.
 findings_text() {
   local src=$1 esc
   [[ -z ${1//[[:space:]]/} ]] && src=$2
@@ -99,18 +83,18 @@ findings_text() {
       /^level=(warning|info|debug) / { next }
       /^error: Recipe .* failed on line / { next }
       /^go (fix|vet|build|tool) / { next }
-      /^(vale|cspell) / { next }
+      /^(vale|cspell|golangci) / { next }
       /^DOCKER_CONFIG=/ { next }
       { sub(/[ \t\r]+$/, ""); buf[++n] = $0 }
       END {
-        for (i = 1; i <= n && i <= 120; i++) print buf[i]
-        if (n > 120) printf "... (%d more lines)\n", n - 120
+        for (i = 1; i <= n && i <= 200; i++) print buf[i]
+        if (n > 200) printf "... (%d more lines)\n", n - 200
       }
     '
 }
 
-# Run one linter and fold any findings into FINDINGS / FAILED. A toolchain
-# failure aborts the whole hook (non-blocking skip). $1 = label, rest = command.
+# Run one linter and fold any findings into FINDINGS / FOUND. A toolchain
+# failure skips the whole hook (non-blocking). $1 = label, rest = command.
 lint_with() {
   local label=$1
   shift
@@ -118,15 +102,13 @@ lint_with() {
   is_infra_failure "$RUN_STDOUT" "$RUN_STDERR" &&
     emit_skip "Lint hook skipped: ${label} could not run (toolchain unavailable)."
   if [[ $RUN_RC -ne 0 ]]; then
-    FAILED=1
+    FOUND=1
     FINDINGS+="
 ### ${label}
 $(findings_text "$RUN_STDOUT" "$RUN_STDERR")
 "
   fi
 }
-
-# --- git / cache helpers ---------------------------------------------------
 
 # All non-vendor files that differ from HEAD: tracked edits + brand-new files.
 compute_changed() {
@@ -148,26 +130,8 @@ compute_fingerprint() {
   } || true
 }
 
-# Cache the last Stop outcome (fingerprint + rc + block payload).
-write_state() {
-  [[ -z $fingerprint ]] && return 0
-  # shellcheck disable=SC2016  # $fp/$rc/$reason/$msg are jq variables, set via --arg(json)
-  jq -n --arg fp "$fingerprint" --argjson rc "$1" --arg reason "$2" --arg msg "$3" \
-    '{fingerprint: $fp, rc: $rc, reason: $reason, systemMessage: $msg}' >"$state_file" 2>/dev/null || true
-}
-
-# A re-read nudge listing the still-present files from $1 (newline-separated).
-reread_note() {
-  local list
-  list=$(while IFS= read -r f; do [[ -f $f ]] && printf -- '- %s\n' "$f"; done <<<"$1")
-  # shellcheck disable=SC2016  # backticks are literal markdown for the agent, not command substitution
-  printf '`just fix-go` may have reformatted or autofixed these files. Re-read them before your next Edit/Write so a stale cached copy does not fail the write:\n%s' "$list"
-}
-
 # Subset of a newline list ($2) whose entries match ERE $1.
 grep_files() { printf '%s\n' "$2" | grep -E "$1" || true; }
-
-# --- main ------------------------------------------------------------------
 
 input=$(cat)
 event=$(jq -r '.hook_event_name // "Stop"' <<<"$input")
@@ -188,93 +152,87 @@ if ! command -v just >/dev/null 2>&1; then
   emit_skip "Lint hook skipped: \`just\` is not installed."
 fi
 
-FINDINGS=""
-FAILED=0
-
 case "$event" in
+PostToolUse)
+  # Formatters only, on the written file. Mutates; never blocks.
+  file_path=$(jq -r '.tool_input.file_path // ""' <<<"$input")
+  [[ -z $file_path ]] && exit 0
+  rel=${file_path#"$project_dir"/}
+  case "$rel" in
+  /* | vendor/*) exit 0 ;; # outside project or vendored
+  *.go) recipe=format-go ;;
+  *.md) recipe=format-markdown ;;
+  *) exit 0 ;; # nothing to format
+  esac
+  [[ -f $rel ]] || exit 0
+
+  before=$(shasum -a 256 "$rel" 2>/dev/null | cut -d' ' -f1)
+  run_recipe just "$recipe" "$rel"
+  is_infra_failure "$RUN_STDOUT" "$RUN_STDERR" &&
+    emit_skip "Format hook skipped: \`just ${recipe}\` could not run (toolchain unavailable)."
+  after=$(shasum -a 256 "$rel" 2>/dev/null | cut -d' ' -f1)
+
+  # Only nudge a re-read when the formatter actually rewrote the file.
+  if [[ $before != "$after" ]]; then
+    # shellcheck disable=SC2016  # backticks are literal markdown for the agent
+    emit_context "$(printf '`just %s` reformatted %s. Re-read it before your next Edit/Write so a stale cached copy does not fail the write.' "$recipe" "$rel")"
+  fi
+  exit 0
+  ;;
+
 PostToolBatch | Stop)
-  # Diff-driven whole-module gate. PostToolBatch runs once per batch (mid-turn);
-  # Stop runs at the yield boundary. A shared content fingerprint means an
-  # unchanged tree is linted once, not re-linted per event or read-only batch.
+  # Linters over the changed files. PostToolBatch surfaces findings as context;
+  # Stop blocks on them. Read-only, so the two share one fingerprint cache.
   changed=$(compute_changed)
   [[ -z $changed ]] && exit 0
   fingerprint=$(compute_fingerprint "$changed")
-  state_file="${state_dir}/${session_id}.state"
+  state_file="${state_dir}/${session_id}.findings"
 
-  note=""
-  cached=0
   if [[ -n $fingerprint && -f $state_file ]]; then
     cached_fp=$(jq -r '.fingerprint // ""' "$state_file" 2>/dev/null || true)
     if [[ $cached_fp == "$fingerprint" ]]; then
-      cached_rc=$(jq -r '.rc // 0' "$state_file" 2>/dev/null || echo 0)
-      if [[ $cached_rc != 0 ]]; then
-        # Tree still failing, unchanged since the last lint.
-        [[ $event == Stop ]] && emit_block "$(jq -r '.reason // ""' "$state_file")" "$(jq -r '.systemMessage // ""' "$state_file")"
-        exit 0 # PostToolBatch: don't re-nag mid-turn
+      cached_findings=$(jq -r '.findings // ""' "$state_file" 2>/dev/null || true)
+      if [[ -n ${cached_findings//[[:space:]]/} && $event == Stop ]]; then
+        emit_block "Lint findings must be resolved before finishing -- fix these, then the hook re-runs:
+${cached_findings}" "Lint gate: findings to fix before finishing."
       fi
-      cached=1 # cached clean: skip the lint, fall through to clean handling
+      exit 0 # PostToolBatch already surfaced these; clean trees just pass
     fi
   fi
 
-  if [[ $cached -eq 0 ]]; then
-    go_changed=$(grep_files '\.go$' "$changed")
-    golangci_changed=$(grep_files '(^|/)\.golangci\.yml$' "$changed")
-    prose_changed=$(grep_files '\.(md|go)$' "$changed")
-    ran_fixgo=0
-    if [[ -n $go_changed || -n $golangci_changed ]]; then
-      lint_with "Go -- just fix-go (whole module)" just fix-go
-      ran_fixgo=1
-    fi
-    if [[ -n $prose_changed ]]; then
-      prose_args=()
-      while IFS= read -r f; do [[ -n $f ]] && prose_args+=("$f"); done <<<"$prose_changed"
-      lint_with "Prose -- just lint-prose" just lint-prose "${prose_args[@]}"
-    fi
-    spell_args=()
-    while IFS= read -r f; do [[ -n $f ]] && spell_args+=("$f"); done <<<"$changed"
-    lint_with "Spelling -- just lint-spelling" just lint-spelling "${spell_args[@]}"
+  FINDINGS=""
+  FOUND=0
+  go_changed=$(grep_files '\.go$' "$changed")
+  golangci_changed=$(grep_files '(^|/)\.golangci\.yml$' "$changed")
+  prose_changed=$(grep_files '\.(md|go)$' "$changed")
 
-    # fix-go mutates files; re-derive the changed set / fingerprint from the
-    # post-fix tree -- the state the next event sees and the cache key.
-    changed=$(compute_changed)
-    fingerprint=$(compute_fingerprint "$changed")
-    [[ $ran_fixgo -eq 1 ]] && note=$(reread_note "$changed")
-
-    if [[ $FAILED -eq 1 ]]; then
-      reason=$(printf 'Lint gate failed -- fix every issue below before continuing, then let the hook re-run:\n%s\n%s' "$FINDINGS" "$note")
-      sysmsg="Lint gate: findings need fixing before finishing."
-      write_state 1 "$reason" "$sysmsg"
-      emit_block "$reason" "$sysmsg"
-    fi
-    write_state 0 "" ""
+  if [[ -n $go_changed || -n $golangci_changed ]]; then
+    lint_with "Go -- just lint-go" just lint-go
   fi
-
-  # --- clean (fresh or cached) ---
-  if [[ $event == Stop ]]; then
-    # Reminder checklist, blocking once per change-set, when Go production code
-    # changed. A separate marker (not the lint cache) keeps a clean PostToolBatch
-    # from suppressing it.
-    prod_go_changed=$(printf '%s\n' "$changed" | grep -E '\.go$' | grep -vE '_test\.go$' || true)
-    if [[ -n $prod_go_changed ]]; then
-      remind_file="${state_dir}/${session_id}.reminded"
-      if [[ "$(cat "$remind_file" 2>/dev/null || true)" != "$fingerprint" ]]; then
-        printf '%s' "$fingerprint" >"$remind_file"
-        targets=$(while IFS= read -r f; do [[ -n $f ]] && printf './%s\n' "$(dirname "$f")"; done <<<"$prod_go_changed" | sort -u)
-        # shellcheck disable=SC2016  # backticks are literal markdown for the agent, not command substitution
-        reason=$(printf 'Lint is clean. Before you finish, a checklist for the Go code you changed (fires once per change-set):\n\n- [ ] Tests: did you add or adjust tests for the change, and does `just cover` still meet the coverage gate?\n- [ ] Mutation tests: run `just mutate <pkg>` (gremlins) on the changed packages and resolve any SURVIVED / NOT COVERED mutants:\n%s\n- [ ] Whole-program gates (not run by fix-go): `just lint-go-deadcode` and `just lint-go-arch`, if you changed exported surface or package wiring.\n- [ ] Full sweep: `just lint` before considering it done (covers the markdown, yaml, config, arch, deadcode, and modernize gates this hook does not run).' "$targets")
-        emit_block "$reason" "Reminder: tests / mutation / full lint for the changed Go code?"
-      fi
-    fi
-    exit 0 # Stop cannot carry additionalContext
+  if [[ -n $prose_changed ]]; then
+    prose_args=()
+    while IFS= read -r f; do [[ -n $f ]] && prose_args+=("$f"); done <<<"$prose_changed"
+    lint_with "Prose -- just lint-prose" just lint-prose "${prose_args[@]}"
   fi
+  spell_args=()
+  while IFS= read -r f; do [[ -n $f ]] && spell_args+=("$f"); done <<<"$changed"
+  lint_with "Spelling -- just lint-spelling" just lint-spelling "${spell_args[@]}"
 
-  # PostToolBatch clean: surface the re-read nudge (additionalContext valid here).
-  [[ -n $note ]] && emit_context "$note"
+  # shellcheck disable=SC2016  # $fp/$f are jq variables, set via --arg
+  jq -n --arg fp "$fingerprint" --arg f "$FINDINGS" '{fingerprint: $fp, findings: $f}' >"$state_file" 2>/dev/null || true
+
+  if [[ $FOUND -eq 1 ]]; then
+    if [[ $event == Stop ]]; then
+      emit_block "Lint findings must be resolved before finishing -- fix these, then the hook re-runs:
+${FINDINGS}" "Lint gate: findings to fix before finishing."
+    fi
+    emit_context "You must fix every lint finding below before continuing. This is a required gate, not optional feedback: do not move on to other work, and do not finish, until they are all resolved.
+${FINDINGS}"
+  fi
   exit 0
   ;;
 
 *)
-  # Any other event (e.g. PostToolUse, if registered): no-op.
   exit 0
   ;;
 esac
