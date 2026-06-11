@@ -46,7 +46,7 @@ repos:
         types_or: [markdown, go]
 
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: 159fea737c2a99ddb1758031f96e95ad59c109a2  # frozen: v0.2.4
+    rev: 6a851ca55fe258291f7e2a70da0279f0f98dc636  # frozen: v0.2.9
     hooks:
       - id: rumdl-fmt
       - id: rumdl
