@@ -1,152 +1,42 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
 
-  // Self-hosted Renovate reads this same file as its global config first
-  // and then again as the per-repo config; without `requireConfig:
-  // "ignored"` that double-read is logged as a warning every run.
-  requireConfig: "ignored",
-
+  // This repo's Renovate config is mostly shared org policy, pulled in from
+  // the two presets in proofhouse/github-actions:
+  //
+  //   - renovate-global-config.json5 via globalExtends — the global-only
+  //     identity, rate limits, and requireConfig (resolved at global-config
+  //     time, the only scope where those options take effect).
+  //   - renovate-config.json5 via extends — the repository-level rules plus
+  //     the Justfile and Vale custom managers shared by every repo.
+  //
+  // Only the Go-module specifics stay inline below: they don't apply to the
+  // non-Go repos, so they don't belong in the shared preset. packageRules
+  // is a mergeable array, so the go-deps rule appends to the preset's rules.
+  globalExtends: [
+    "github>proofhouse/github-actions//.github/renovate-global-config.json5",
+  ],
   extends: [
-    "config:recommended",
-    // DCO sign-off on every commit Renovate creates. Pairs with
-    // `gitAuthor` below so the trailer matches the committer identity.
-    ":gitSignOff",
-    // Default GitHub Actions to pin-by-digest with a human-readable tag
-    // comment — same discipline AGENTS.md mandates for every `uses:`.
-    "helpers:pinGitHubActionDigests",
-    // Enable Renovate's built-in pre-commit manager (off by default) so it
-    // tracks the hook `rev:` pins in `.pre-commit-config.yaml`, the same way
-    // the built-in managers track `go.mod` and the GitHub Actions pins.
-    ":enablePreCommit",
+    "github>proofhouse/github-actions//.github/renovate-config.json5",
   ],
 
-  // Authenticated identity. `username` is what GitHub recognizes as the
-  // App's bot login; `gitAuthor` is what shows up in `git log` and in the
-  // DCO `Signed-off-by:` trailer.
-  //
-  // The numeric prefix on the gitAuthor email is the proofhouse-renovate
-  // bot account's own user id (distinct from the App id), recovered with
-  // `gh query users/proofhouse-renovate[bot] --jq .id`. gitSignOff needs a
-  // valid noreply address here to construct the Signed-off-by line.
-  username: "proofhouse-renovate[bot]",
-  gitAuthor: "proofhouse-renovate[bot] <289255489+proofhouse-renovate[bot]@users.noreply.github.com>",
-
-  // Single-repo scope. Self-hosted Renovate iterates over this list and
-  // bails out on anything not present, so a misconfigured install can't
-  // accidentally open PRs on other repositories.
+  // Single-repo scope. The one global-only option that can't move to the
+  // shared preset — it differs per repo.
   repositories: ["proofhouse/agent-tools"],
 
-  // `gomodTidy` runs `go mod tidy` after a Go-module update so go.sum
-  // and the indirect graph stay coherent in the same PR. Self-hosting
-  // means the project picks the Go toolchain version Renovate installs
-  // (matches go.mod's toolchain pin, not whatever the hosted Mend App
-  // ships).
+  // `gomodTidy` runs `go mod tidy` after a Go-module update so go.sum and
+  // the indirect graph stay coherent in the same PR. Self-hosting means the
+  // project picks the Go toolchain version the sidecar uses (matches
+  // go.mod's toolchain pin, not whatever the hosted Mend App ships).
   postUpdateOptions: ["gomodTidy"],
 
-  // Renovate's default rate limits assume a hosted SaaS context. For a
-  // self-hosted run on a cron we want every actionable PR opened on each
-  // pass; rate-limiting just stretches updates across multiple runs.
-  prConcurrentLimit: 0,
-  prHourlyLimit: 0,
-
-  // Open and update PRs on Sundays only. Keeps weekday review queues
-  // focused on human-authored work; pairs with the weekday cron in
-  // renovate.yaml which still runs for vulnerability alerts (those
-  // bypass the schedule).
-  schedule: ["on sunday"],
-
-  // Surface known CVEs in the dependency tree as PRs immediately, no
-  // cooldown and no schedule gate.
-  vulnerabilityAlerts: {
-    enabled: true,
-    minimumReleaseAge: null,
-  },
-
   packageRules: [
-    // Cooldown window — skip versions younger than 5 days. Most
-    // supply-chain attacks get noticed and yanked inside that window.
-    // Vulnerability-driven updates bypass via vulnerabilityAlerts above.
-    {
-      matchUpdateTypes: ["major", "minor", "patch"],
-      minimumReleaseAge: "5 days",
-    },
-
     // One review surface for every Go-module bump. Bundling avoids the
-    // "twelve tiny PRs" failure mode and makes the vendor/ diff easier
-    // to read as a single unit.
+    // "twelve tiny PRs" failure mode and makes the vendor/ diff easier to
+    // read as a single unit.
     {
       groupName: "go-deps",
       matchManagers: ["gomod"],
-    },
-
-    // One review surface for every GitHub Actions pin refresh.
-    {
-      groupName: "github-actions",
-      matchManagers: ["github-actions"],
-    },
-
-    // One review surface for every pre-commit hook `rev:` bump.
-    {
-      groupName: "pre-commit-hooks",
-      matchManagers: ["pre-commit"],
-    },
-
-    // One review surface for every Vale style package bump in `.vale.ini`.
-    // Grouped by file rather than manager: the custom regex manager below
-    // shares the `regex` manager name with the others, so `matchFileNames`
-    // is what isolates these updates.
-    {
-      groupName: "vale-styles",
-      matchFileNames: [".vale.ini"],
-    },
-  ],
-
-  // Renovate has built-in managers for go.mod, GitHub Actions, and
-  // Dockerfile FROM lines — those don't need customManagers. The
-  // `# renovate:` markers in non-standard locations do.
-  customManagers: [
-    // Justfile docker-image pins. Each marker pairs a tag-form version
-    // with a tag@sha256:digest image string on the immediately following
-    // two lines. Renovate updates both atomically (the tag appears on
-    // both lines and autoReplaceGlobalMatch defaults to true).
-    //
-    //   # renovate: datasource=docker depName=golangci/golangci-lint
-    //   golangci_lint_version := "v2.12.2"
-    //   golangci_lint_image := "docker.io/golangci/golangci-lint:v2.12.2@sha256:..."
-    //
-    //   # renovate: datasource=docker depName=fe3dback/go-arch-lint
-    //   go_arch_lint_version := "release-v1.15.0"
-    //   go_arch_lint_image := "docker.io/fe3dback/go-arch-lint:release-v1.15.0@sha256:..."
-    //
-    //   # renovate: datasource=docker depName=rhysd/actionlint
-    //   actionlint_version := "1.7.12"
-    //   actionlint_image := "docker.io/rhysd/actionlint:1.7.12@sha256:..."
-    {
-      customType: "regex",
-      managerFilePatterns: ["/^Justfile$/"],
-      matchStrings: [
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+\\S+_version := \"(?<currentValue>.*?)\"\\s+\\S+_image := \".*?@(?<currentDigest>sha256:[a-f0-9]+)\"",
-      ],
-    },
-
-    // .vale.ini `Packages` block. Each entry is a GitHub release-asset URL
-    // whose path already carries owner/repo and the version tag, so the
-    // marker the other managers rely on is unnecessary — and Vale's
-    // backslash-continued list has nowhere to put an inline `# renovate:`
-    // comment anyway. depName and currentValue come straight out of the URL.
-    //
-    //   https://github.com/errata-ai/Google/releases/download/v0.6.3/Google.zip, \
-    //
-    // tbhb/vale-ai-tells contributes three assets pinned to one tag; they
-    // share an identical matched substring, so autoReplaceGlobalMatch
-    // (default true) rewrites all three in a single update.
-    {
-      customType: "regex",
-      managerFilePatterns: ["/^\\.vale\\.ini$/"],
-      matchStrings: [
-        "https://github\\.com/(?<depName>[^/]+/[^/]+)/releases/download/(?<currentValue>v[^/]+)/",
-      ],
-      datasourceTemplate: "github-releases",
     },
   ],
 }
