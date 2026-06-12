@@ -46,7 +46,7 @@ niquests
 [Qq]ueryable
 [Rr]enovate
 reviewdog
-repo
+[Rr]epos?
 [Rr]uleset
 rumdl
 [Ss]igstore
@@ -228,5 +228,10 @@ CLIs
 devs
 CodeQL
 autobuild
+org's
+[Dd]ogfood(s|ing|ed)?
+[Cc]ocogitto
+APM|apm
 rhysd
 [Yy]amllint('s)?
+[Ll]ockfiles?

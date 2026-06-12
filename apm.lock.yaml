@@ -1,0 +1,10 @@
+lockfile_version: '1'
+generated_at: '2026-06-12T03:31:53.572853+00:00'
+dependencies: []
+local_deployed_files:
+- .claude/rules/worktree-wip.md
+- .claude/skills/commit
+- .claude/skills/commit/SKILL.md
+local_deployed_file_hashes:
+  .claude/rules/worktree-wip.md: sha256:bc8a99e42b5c520af7af1c4b709410757b982abf2597a20f0fb0ba2e71116127
+  .claude/skills/commit/SKILL.md: sha256:999704f1e928de8a64403d04b3a51781192bd31f55252f551178d9113da71854
