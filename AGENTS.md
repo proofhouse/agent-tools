@@ -16,7 +16,7 @@ The prek commit-msg hook on `.git/COMMIT_EDITMSG` stays the real gate. `COMMIT_A
 
 ## Prose lint output
 
-When fixing vale findings, run `vale --output=proofhouse-agent.tmpl <files>` instead of the default output. The template, synced from the proofhouse package, prints one self-contained line per finding (location, severity, rule, the exact matched text, and the replacement when the rule carries one) plus a totals line, so you can fix findings without follow-up searching. Empty output means a clean run, and the exit code carries the result.
+The toolchain already defaults to the agent output template: `just lint-prose` and the prek vale hook both pass `--output=proofhouse-agent.tmpl`. Add the flag yourself only when you invoke `vale` directly. The template, synced from the proofhouse package, prints one self-contained line per finding (location, severity, rule, the exact matched text, and the replacement when the rule carries one) plus a totals line, so you can fix findings without follow-up searching. Empty output means a clean run, and the exit code carries the result.
 
 ## Verifying Claude Code behavior
 

@@ -297,7 +297,7 @@ lint-go-arch:
 
 # Lint prose in Markdown files and source comments via vale.
 lint-prose *args:
-    vale --glob='!{LICENSE,CHANGELOG.md,.vale/*,tmp/*,vendor/*,.claude/worktrees/*,COMMIT_AGENTMSG}' {{ if args == "" { "." } else { args } }}
+    vale --output=proofhouse-agent.tmpl --glob='!{LICENSE,CHANGELOG.md,.vale/*,tmp/*,vendor/*,.claude/worktrees/*,COMMIT_AGENTMSG}' {{ if args == "" { "." } else { args } }}
 
 # Checks against the project dictionary at .cspell-words.txt. cspell
 # ignores binaries, generated files, and the vendor/ tree via the
