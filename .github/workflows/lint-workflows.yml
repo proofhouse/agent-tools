@@ -1,3 +1,4 @@
+---
 name: lint-workflows
 
 # Lint every workflow under `.github/workflows/` with actionlint, delegated to
