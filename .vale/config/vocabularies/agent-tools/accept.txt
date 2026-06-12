@@ -235,3 +235,4 @@ APM|apm
 rhysd
 [Yy]amllint('s)?
 [Ll]ockfiles?
+agent-tools

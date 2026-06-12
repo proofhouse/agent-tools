@@ -14,6 +14,10 @@ Draft every commit message in the repo-root file `COMMIT_AGENTMSG` before you ru
 
 The prek commit-msg hook on `.git/COMMIT_EDITMSG` stays the real gate. `COMMIT_AGENTMSG` and its recipe only preview that gate, so a clean recipe run predicts a clean commit but never replaces the hook.
 
+## Prose lint output
+
+When fixing vale findings, run `vale --output=proofhouse-agent.tmpl <files>` instead of the default output. The template, synced from the proofhouse package, prints one self-contained line per finding (location, severity, rule, the exact matched text, and the replacement when the rule carries one) plus a totals line, so you can fix findings without follow-up searching. Empty output means a clean run, and the exit code carries the result.
+
 ## Verifying Claude Code behavior
 
 The public Claude Code docs don't always match the installed version. When the behavior of a hook or harness feature matters (which events fire, in what order, whether an event can block, what its stdin payload carries), confirm it against the installed `claude` binary rather than trusting the docs or prior memory.

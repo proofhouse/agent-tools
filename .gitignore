@@ -40,11 +40,10 @@ gremlins-report.json
 .claude/worktrees/
 .claude/settings.local.json
 
-# Vale synced packages (keep vocabulary and project styles).
+# Vale synced packages (keep the vocabulary).
 # Each negation needs the parent un-ignored first — git can't re-include
 # a child whose ancestor directory stays excluded.
 .vale/*
-!.vale/agent-tools/
 !.vale/config/
 .vale/config/*
 !.vale/config/vocabularies/
