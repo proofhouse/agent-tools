@@ -43,5 +43,5 @@ reject an intentionally incomplete snapshot over formatting, lint,
 copyright headers, and the rest. This throwaway commit marks the one
 sanctioned exception to the project-wide no-`--no-verify` rule, and
 `git reset --soft` removes it before anything reaches history. A real
-commit that lands on the branch never carries `--no-verify`. It runs
+commit that reaches the branch never carries `--no-verify`. It runs
 through the full hook suite.

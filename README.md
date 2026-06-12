@@ -1,6 +1,6 @@
 # agent-tools
 
-Shared agent tooling for the Proofhouse org. The repo ships Go
+Shared agent tooling for the Proofhouse org. The repo provides Go
 command-line tools for agent harnesses, plus the org's shared
 [APM](https://microsoft.github.io/apm) package of agent primitives.
 
@@ -13,7 +13,7 @@ Repos across the org install the shared primitives with the
 apm install proofhouse/agent-tools#v0.1.0
 ```
 
-The package ships these primitives from [`.apm/`](.apm/):
+The package deploys these primitives from [`.apm/`](.apm/):
 
 | Primitive | Type | Purpose |
 | --- | --- | --- |
