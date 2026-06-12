@@ -90,6 +90,15 @@
       groupName: "pre-commit-hooks",
       matchManagers: ["pre-commit"],
     },
+
+    // One review surface for every Vale style package bump in `.vale.ini`.
+    // Grouped by file rather than manager: the custom regex manager below
+    // shares the `regex` manager name with the others, so `matchFileNames`
+    // is what isolates these updates.
+    {
+      groupName: "vale-styles",
+      matchFileNames: [".vale.ini"],
+    },
   ],
 
   // Renovate has built-in managers for go.mod, GitHub Actions, and
@@ -118,6 +127,26 @@
       matchStrings: [
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+\\S+_version := \"(?<currentValue>.*?)\"\\s+\\S+_image := \".*?@(?<currentDigest>sha256:[a-f0-9]+)\"",
       ],
+    },
+
+    // .vale.ini `Packages` block. Each entry is a GitHub release-asset URL
+    // whose path already carries owner/repo and the version tag, so the
+    // marker the other managers rely on is unnecessary — and Vale's
+    // backslash-continued list has nowhere to put an inline `# renovate:`
+    // comment anyway. depName and currentValue come straight out of the URL.
+    //
+    //   https://github.com/errata-ai/Google/releases/download/v0.6.3/Google.zip, \
+    //
+    // tbhb/vale-ai-tells contributes three assets pinned to one tag; they
+    // share an identical matched substring, so autoReplaceGlobalMatch
+    // (default true) rewrites all three in a single update.
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^\\.vale\\.ini$/"],
+      matchStrings: [
+        "https://github\\.com/(?<depName>[^/]+/[^/]+)/releases/download/(?<currentValue>v[^/]+)/",
+      ],
+      datasourceTemplate: "github-releases",
     },
   ],
 }
