@@ -43,25 +43,29 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install cocogitto
-        uses: cocogitto/cocogitto-action@9a9fe03b31c47444290c0d7f9b1ee1b44ee13f20 # v4.1.0
-        with:
-          install-only: true
-
-      - name: Configure git identity
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Bump version and tag
+      # The cocogitto action insists on a command (its install-only
+      # input exists but the pinned revision never consults it), so a
+      # small step turns the optional dispatch input into the bump
+      # arguments and the action runs the bump itself. The action also
+      # owns the git identity configuration.
+      - name: Plan bump arguments
+        id: plan
         env:
           VERSION: ${{ inputs.version }}
         run: |
           if [ -n "$VERSION" ]; then
-            cog bump --version "$VERSION"
+            echo "args=--version $VERSION" >> "$GITHUB_OUTPUT"
           else
-            cog bump --auto
+            echo "args=--auto" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Bump version and tag
+        uses: cocogitto/cocogitto-action@9a9fe03b31c47444290c0d7f9b1ee1b44ee13f20 # v4.1.0
+        with:
+          git-user: github-actions[bot]
+          git-user-email: github-actions[bot]@users.noreply.github.com
+          command: bump
+          args: ${{ steps.plan.outputs.args }}
 
       - name: Push release commit and tag
         run: git push --follow-tags origin main
