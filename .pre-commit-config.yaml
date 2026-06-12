@@ -52,6 +52,9 @@ repos:
         # explicit per-rule toggles in [*.md] survive an empty
         # BasedOnStyles in the CHANGELOG.md block. Exclude it here too.
         exclude: ^CHANGELOG\.md$
+        # Template from the proofhouse package; one machine-parseable
+        # line per finding.
+        args: [--output=proofhouse-agent.tmpl]
 
   - repo: https://github.com/rvben/rumdl-pre-commit
     rev: 6a851ca55fe258291f7e2a70da0279f0f98dc636  # frozen: v0.2.9
