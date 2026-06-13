@@ -70,7 +70,7 @@ repos:
   # Pinned by SHA with a `# frozen:` tag comment so Renovate's pre-commit
   # manager tracks it, the same as the other hook repos above.
   - repo: https://github.com/proofhouse/pre-commit-hooks
-    rev: b82937596ead954b40e67a38b5a605765cfc9d22  # frozen: v0.1.0
+    rev: c0b78470513923f645b63e5fce3a0907c59d049d  # frozen: v0.2.0
     hooks:
       - id: commit-trailers
       - id: commitlint
