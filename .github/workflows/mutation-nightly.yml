@@ -66,7 +66,7 @@ jobs:
           check-latest: false
 
       - name: Set up just
-        uses: proofhouse/github-actions/.github/actions/setup-just@c55eeb3115d95f6b8777538b4d6f49d48830e199 # v0.2.0
+        uses: proofhouse/github-actions/.github/actions/setup-just@8fc147c5b166239ee72e04ffc17dc85a40888d0e # v0.2.1
 
       - name: Run mutation sweep
         env:
