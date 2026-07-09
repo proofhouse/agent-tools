@@ -27,7 +27,7 @@ repos:
         entry: yamllint -c .yamllint.yaml --strict
         types: [yaml]
 
-  - repo: https://github.com/errata-ai/vale
+  - repo: https://github.com/vale-cli/vale
     rev: 8c4ed0df90e45f93818ffed5ba587ff1e220a142  # frozen: v3.15.1
     hooks:
       # Scope the pre-commit-stage hook to the file types .vale.ini
