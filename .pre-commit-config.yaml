@@ -28,7 +28,7 @@ repos:
         types: [yaml]
 
   - repo: https://github.com/errata-ai/vale
-    rev: 810868b21c6c88cf78dfb8960b1afc78d1b7f6a8  # frozen: v3.14.2
+    rev: 8c4ed0df90e45f93818ffed5ba587ff1e220a142  # frozen: v3.15.1
     hooks:
       # Scope the pre-commit-stage hook to the file types .vale.ini
       # actually configures rules for (Markdown + Go source). The
@@ -57,7 +57,7 @@ repos:
         args: [--output=proofhouse-agent.tmpl]
 
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: 6a851ca55fe258291f7e2a70da0279f0f98dc636  # frozen: v0.2.9
+    rev: 77cb2353b60aecd74aa56db968b49ae0ff25144e  # frozen: v0.2.28
     hooks:
       - id: rumdl-fmt
       - id: rumdl
