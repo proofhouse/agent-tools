@@ -36,7 +36,7 @@ permissions:
 jobs:
   renovate:
     name: Run self-hosted Renovate
-    uses: proofhouse/github-actions/.github/workflows/renovate.yaml@8fc147c5b166239ee72e04ffc17dc85a40888d0e # v0.2.1
+    uses: proofhouse/github-actions/.github/workflows/renovate.yaml@ffc278f8a5826e61763eb837bb5bc2199a26b86b # v0.2.2
     permissions:
       contents: read
     # On a scheduled run the shared workflow already forces DEBUG, so the
