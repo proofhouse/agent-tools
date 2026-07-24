@@ -102,9 +102,9 @@ github.com/go-viper/mapstructure/v2/internal/errors
 ## explicit
 github.com/golang/freetype/raster
 github.com/golang/freetype/truetype
-# github.com/google/go-github/v82 v82.0.0
-## explicit; go 1.24.0
-github.com/google/go-github/v82/github
+# github.com/google/go-github/v88 v88.0.0
+## explicit; go 1.25.0
+github.com/google/go-github/v88/github
 # github.com/google/go-querystring v1.2.0
 ## explicit; go 1.13
 github.com/google/go-querystring/query
@@ -198,7 +198,7 @@ github.com/stretchr/testify/require
 # github.com/subosito/gotenv v1.6.0
 ## explicit; go 1.18
 github.com/subosito/gotenv
-# github.com/vladopajic/go-test-coverage/v2 v2.18.8
+# github.com/vladopajic/go-test-coverage/v2 v2.18.9
 ## explicit; go 1.26
 github.com/vladopajic/go-test-coverage/v2
 github.com/vladopajic/go-test-coverage/v2/pkg/testcoverage
@@ -219,21 +219,21 @@ github.com/xeipuuv/gojsonschema
 # go.yaml.in/yaml/v3 v3.0.4
 ## explicit; go 1.16
 go.yaml.in/yaml/v3
-# golang.org/x/image v0.38.0
+# golang.org/x/image v0.41.0
 ## explicit; go 1.25.0
 golang.org/x/image/font
 golang.org/x/image/math/fixed
-# golang.org/x/mod v0.37.0
+# golang.org/x/mod v0.38.0
 ## explicit; go 1.25.0
 golang.org/x/mod/semver
-# golang.org/x/sync v0.21.0
+# golang.org/x/sync v0.22.0
 ## explicit; go 1.25.0
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.46.0
+# golang.org/x/sys v0.47.0
 ## explicit; go 1.25.0
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/telemetry v0.0.0-20260625142307-59b4966ccb57
+# golang.org/x/telemetry v0.0.0-20260708182218-49f421fb7959
 ## explicit; go 1.25.0
 golang.org/x/telemetry
 golang.org/x/telemetry/counter
@@ -244,7 +244,7 @@ golang.org/x/telemetry/internal/crashmonitor
 golang.org/x/telemetry/internal/mmap
 golang.org/x/telemetry/internal/telemetry
 golang.org/x/telemetry/internal/upload
-# golang.org/x/text v0.35.0
+# golang.org/x/text v0.37.0
 ## explicit; go 1.25.0
 golang.org/x/text/encoding
 golang.org/x/text/encoding/internal
@@ -254,7 +254,7 @@ golang.org/x/text/internal/utf8internal
 golang.org/x/text/runes
 golang.org/x/text/transform
 golang.org/x/text/unicode/norm
-# golang.org/x/tools v0.47.0
+# golang.org/x/tools v0.48.0
 ## explicit; go 1.25.0
 golang.org/x/tools/cmd/deadcode
 golang.org/x/tools/cover
@@ -289,7 +289,7 @@ golang.org/x/tools/internal/stdlib
 golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
 golang.org/x/tools/internal/versions
-# golang.org/x/vuln v1.5.0
+# golang.org/x/vuln v1.6.0
 ## explicit; go 1.25.0
 golang.org/x/vuln/cmd/govulncheck
 golang.org/x/vuln/internal
