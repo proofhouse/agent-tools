@@ -50,12 +50,12 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Harden the runner
-        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
         with:
           egress-policy: audit
 
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -66,7 +66,7 @@ jobs:
           check-latest: false
 
       - name: Set up just
-        uses: proofhouse/github-actions/.github/actions/setup-just@8fc147c5b166239ee72e04ffc17dc85a40888d0e # v0.2.1
+        uses: proofhouse/github-actions/.github/actions/setup-just@ffc278f8a5826e61763eb837bb5bc2199a26b86b # v0.2.2
 
       - name: Run mutation sweep
         env:
