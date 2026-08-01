@@ -61,7 +61,7 @@ jobs:
           check-latest: false
 
       - name: Set up just
-        uses: proofhouse/github-actions/.github/actions/setup-just@ffc278f8a5826e61763eb837bb5bc2199a26b86b # v0.2.2
+        uses: proofhouse/github-actions/.github/actions/setup-just@131c527df05799916f98d8c4b26eb225dbfc7845 # v0.4.0
 
       - name: Run fuzz sweep
         env:
