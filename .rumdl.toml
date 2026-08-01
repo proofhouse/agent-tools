@@ -1,7 +1,7 @@
 [global]
 disable = [
-  "MD013", # Line length — we don't hardwrap markdown.
-  "MD033", # Inline HTML — needed for cosign/badge embeds.
+  "MD013",  # Line length — we don't hardwrap markdown.
+  "MD033",  # Inline HTML — needed for cosign/badge embeds.
 ]
 respect_gitignore = true
 exclude = [

@@ -54,6 +54,7 @@ rumdl
 subcommands?
 subproject
 superset
+[Tt]ombi
 toolchain
 [Vv]endor(ed|ing)
 [Uu]ntrusted
