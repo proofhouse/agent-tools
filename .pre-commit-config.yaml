@@ -103,17 +103,23 @@ repos:
       # Shell gates, wired the same way as the Go pair above: the recipe
       # owns the file list (git ls-files minus vendor/), so the hooks pass
       # no filenames and only decide *whether* to run. shellcheck comes
-      # from the pinned Docker image, shfmt from the Brewfile.
-      - id: shellcheck
-        name: shellcheck
-        entry: just lint-shell
+      # from the pinned Docker image, shfmt from the Brewfile. The
+      # formatter runs first and rewrites in place (a modified file fails
+      # the commit, so the contributor reviews and re-stages), matching the
+      # `shfmt -w` hook proofhouse/pre-commit-hooks already publishes; then
+      # the correctness linter runs. The `lint-shell-fmt` diff gate has no
+      # hook of its own — shfmt has already normalized the file by the time
+      # shellcheck runs — and CI still reads it through `just lint`.
+      - id: shfmt
+        name: shfmt
+        entry: just format-shell
         language: system
         types: [shell]
         pass_filenames: false
 
-      - id: shfmt
-        name: shfmt
-        entry: just lint-shell-fmt
+      - id: shellcheck
+        name: shellcheck
+        entry: just lint-shell
         language: system
         types: [shell]
         pass_filenames: false
