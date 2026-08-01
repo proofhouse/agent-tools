@@ -56,15 +56,20 @@ container_runtime := env("CONTAINER_RUNTIME", `bash -c '
 
 # editorconfig-checker-enable
 
-# Container invocation prefix for golangci-lint. Mounts the working dir at
-# /data and the host Go module cache so first-run resolution stays cheap.
-# Shell substitutions evaluate at recipe-run time, not Justfile-parse time.
+# Shared container-run prefix that every containerized tool below builds
+# on. Shell substitutions evaluate at recipe-run time, not
+# Justfile-parse time.
 #
 # DOCKER_CONFIG points at a fresh empty directory so docker skips the
 # osxkeychain credential helper (public Docker Hub pulls don't need it,
 # and sandboxed environments can't always reach the helper binary).
 # PATH gets the runtime's directory prepended for cases where docker
 # itself isn't on the calling shell's PATH.
+
+docker_run := 'DOCKER_CONFIG="$(mktemp -d)" PATH="$(dirname ' + container_runtime + '):$PATH" ' + container_runtime + ' run --rm'
+
+# Container invocation prefix for golangci-lint. Mounts the working dir at
+# /data and the host Go module cache so first-run resolution stays cheap.
 #
 # GOTOOLCHAIN=local pins the container to the Go version baked into
 # the golangci-lint image, blocking the in-container toolchain
@@ -74,7 +79,7 @@ container_runtime := env("CONTAINER_RUNTIME", `bash -c '
 # granularity — golangci-lint analyzers walk the AST, and point
 # releases ship no syntax changes.
 
-golangci_lint := 'DOCKER_CONFIG="$(mktemp -d)" PATH="$(dirname ' + container_runtime + '):$PATH" ' + container_runtime + ' run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -e GOLANGCI_LINT_CACHE=/tmp/golangci-lint-cache -e GOTOOLCHAIN=local -v "$(go env GOMODCACHE):/go/pkg/mod" -v "$(pwd):/data" -w /data ' + golangci_lint_image + ' golangci-lint'
+golangci_lint := docker_run + ' --user "$(id -u):$(id -g)" -e HOME=/tmp -e GOLANGCI_LINT_CACHE=/tmp/golangci-lint-cache -e GOTOOLCHAIN=local -v "$(go env GOMODCACHE):/go/pkg/mod" -v "$(pwd):/data" -w /data ' + golangci_lint_image + ' golangci-lint'
 
 # go-arch-lint version pin. Same Docker-pin pattern as golangci-lint:
 # the upstream image bundles the linter at a known version, and Renovate
@@ -90,7 +95,7 @@ go_arch_lint_image := "docker.io/fe3dback/go-arch-lint:release-v1.15.0@sha256:5a
 # reads source. Does not set --user: the upstream image is built for root,
 # and a read-only mount means root inside can't write to the host anyway.
 
-go_arch_lint := 'DOCKER_CONFIG="$(mktemp -d)" PATH="$(dirname ' + container_runtime + '):$PATH" ' + container_runtime + ' run --rm -v "$(pwd):/app:ro" ' + go_arch_lint_image
+go_arch_lint := docker_run + ' -v "$(pwd):/app:ro" ' + go_arch_lint_image
 
 # actionlint version pin. Same Docker-pin pattern as golangci-lint and
 # go-arch-lint: the upstream image bundles actionlint (plus shellcheck) at
@@ -117,13 +122,13 @@ actionlint_image := "docker.io/rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f
 # reads source. The bundled shellcheck lints `run:` blocks, matching what
 # the shared workflow applies in CI.
 
-actionlint := 'DOCKER_CONFIG="$(mktemp -d)" PATH="$(dirname ' + container_runtime + '):$PATH" ' + container_runtime + ' run --rm -v "$(pwd):/repo:ro" -w /repo ' + actionlint_image
+actionlint := docker_run + ' -v "$(pwd):/repo:ro" -w /repo ' + actionlint_image
 
 # renovate: datasource=docker depName=ghcr.io/gitleaks/gitleaks
 
 gitleaks_version := "v8.28.0"
 gitleaks_image := "ghcr.io/gitleaks/gitleaks:v8.28.0@sha256:cdbb7c955abce02001a9f6c9f602fb195b7fadc1e812065883f695d1eeaba854"
-gitleaks_scan := 'DOCKER_CONFIG="$(mktemp -d)" PATH="$(dirname ' + container_runtime + '):$PATH" ' + container_runtime + ' run --rm -v "$(pwd):/repo" -w /repo ' + gitleaks_image
+gitleaks_scan := docker_run + ' -v "$(pwd):/repo" -w /repo ' + gitleaks_image
 
 # shellcheck version pin. Same Docker-pin pattern as the linters above, and
 # Renovate tracks the version + digest pair through the shared Justfile
@@ -141,7 +146,7 @@ shellcheck_image := "docker.io/koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09
 # only reads source; the recipe passes repo-relative paths, so the working
 # directory has to be the mount point.
 
-shellcheck := 'DOCKER_CONFIG="$(mktemp -d)" PATH="$(dirname ' + container_runtime + '):$PATH" ' + container_runtime + ' run --rm -v "$(pwd):/mnt:ro" -w /mnt ' + shellcheck_image
+shellcheck := docker_run + ' -v "$(pwd):/mnt:ro" -w /mnt ' + shellcheck_image
 
 # Build metadata. `date` is the *committer date* (UTC, ISO-8601),
 # not build invocation time, so two builds of the same commit produce
