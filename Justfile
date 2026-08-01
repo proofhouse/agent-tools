@@ -251,8 +251,8 @@ format-toml:
 # Format shell scripts in place via shfmt.
 [script]
 format-shell:
-    files=$(git ls-files '*.sh' ':!:vendor/**')
-    if [ -n "$files" ]; then shfmt -w $files; fi
+    files=$(git ls-files '*.sh' ':!:vendor/')
+    if [[ -n "$files" ]]; then shfmt -w $files; fi
 
 # just's formatter is still an unstable subcommand upstream. The `set
 # unstable` at the top of this file already unlocks it, but both this recipe
@@ -453,7 +453,7 @@ check-tombi-version:
 # Covers the standalone scripts the actionlint image never opens
 # (hooks/go-lint.sh, tools/fuzz.sh). The file list comes from git rather
 # than a glob so untracked scratch scripts stay out of the gate, and the
-# `:!:vendor/**` pathspec drops the vendored upstream scripts, which are
+# `:!:vendor/` pathspec drops the vendored upstream scripts, which are
 # reviewed at vendor-tidy time rather than held to this project's style.
 # The emptiness guard matters because shellcheck with no path arguments
 # reads stdin and blocks. Runs from the SHA-pinned image above, so the
@@ -463,8 +463,8 @@ check-tombi-version:
 # Lint every tracked non-vendored *.sh via the pinned shellcheck image.
 [script]
 lint-shell:
-    files=$(git ls-files '*.sh' ':!:vendor/**')
-    if [ -n "$files" ]; then {{ shellcheck }} $files; fi
+    files=$(git ls-files '*.sh' ':!:vendor/')
+    if [[ -n "$files" ]]; then {{ shellcheck }} $files; fi
 
 # The check-only mirror of `format-shell`: -d prints a unified diff and
 # exits non-zero when shfmt would rewrite anything, so the gate reports the
@@ -476,8 +476,8 @@ lint-shell:
 # Fail if shfmt would reformat any tracked non-vendored *.sh.
 [script]
 lint-shell-fmt:
-    files=$(git ls-files '*.sh' ':!:vendor/**')
-    if [ -n "$files" ]; then shfmt -d $files; fi
+    files=$(git ls-files '*.sh' ':!:vendor/')
+    if [[ -n "$files" ]]; then shfmt -d $files; fi
 
 # --check makes the formatter a gate: it exits non-zero and prints the
 # formatted text without touching the file, leaving `just format-just` as
