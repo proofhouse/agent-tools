@@ -28,6 +28,6 @@ jobs:
     # yamllint's 120-col limit and can't be wrapped; Renovate keeps the
     # SHA and tag in sync inline.
     # yamllint disable-line rule:line-length
-    uses: proofhouse/github-actions/.github/workflows/lint-codeowners.yml@ffc278f8a5826e61763eb837bb5bc2199a26b86b # v0.2.2
+    uses: proofhouse/github-actions/.github/workflows/lint-codeowners.yml@131c527df05799916f98d8c4b26eb225dbfc7845 # v0.4.0
     permissions:
       contents: read
