@@ -363,14 +363,17 @@ lint-go-arch:
 # The glob excludes the LICENSE (canonical Apache 2.0 text), the
 # auto-generated changelog, vale's own style packages, scratch dirs,
 # vendored code, the gitignored agent worktrees under .claude/worktrees/
-# (whose nested vendor trees otherwise crash vale), and the
-# COMMIT_AGENTMSG draft (the `lint-commit-msg` recipe owns that one under
-# the stricter commit scope); the per-file-type rules in .vale.ini decide
-# what else gets inspected.
+# (whose nested vendor trees otherwise crash vale), the apm_modules/
+# package cache (whose nested .vale.ini also crashes vale), the
+# APM-deployed rules and skills under .claude/ (upstream-owned content
+# pinned by apm.lock.yaml), and the COMMIT_AGENTMSG draft (the
+# `lint-commit-msg` recipe owns that one under the stricter commit
+# scope); the per-file-type rules in .vale.ini decide what else gets
+# inspected.
 
 # Lint prose in Markdown files and source comments via vale.
 lint-prose *args:
-    vale --output=proofhouse-agent.tmpl --glob='!{LICENSE,CHANGELOG.md,.vale/*,tmp/*,vendor/*,.claude/worktrees/*,COMMIT_AGENTMSG}' {{ if args == "" { "." } else { args } }}
+    vale --output=proofhouse-agent.tmpl --glob='!{LICENSE,CHANGELOG.md,.vale/*,tmp/*,vendor/*,apm_modules/*,.claude/worktrees/*,.claude/rules/*,.claude/skills/*,COMMIT_AGENTMSG}' {{ if args == "" { "." } else { args } }}
 
 # Checks against the project dictionary at .cspell-words.txt. cspell
 # ignores binaries, generated files, and the vendor/ tree via the
