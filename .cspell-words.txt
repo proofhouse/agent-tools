@@ -306,3 +306,4 @@ tombi
 venv
 koalaman
 pathspec
+gofmt

@@ -1,6 +1,7 @@
 brew "biome"
 brew "cocogitto"
 brew "cspell"
+brew "editorconfig-checker"
 brew "gitleaks"
 brew "go"
 brew "jq"

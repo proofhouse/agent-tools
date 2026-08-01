@@ -31,7 +31,13 @@ golangci_lint_image := "docker.io/golangci/golangci-lint:v2.12.2@sha256:5cceeef0
 # well-known install locations so the recipe still works inside agentic
 # harnesses or sandboxes that strip /usr/local/bin from PATH. Override by
 # setting CONTAINER_RUNTIME in the environment.
-
+#
+# The continuation lines of the `for` list below hang under the first
+# candidate path rather than on a two-space grid, which is what shell
+# style calls for and what `lint-editorconfig` would otherwise reject
+# under this file's indent_size = 2. Exempt just that span rather than
+# re-indent a block the sibling repos carry verbatim.
+# editorconfig-checker-disable
 container_runtime := env("CONTAINER_RUNTIME", `bash -c '
     docker_path=$(command -v docker 2>/dev/null || true)
     podman_path=$(command -v podman 2>/dev/null || true)
@@ -47,6 +53,8 @@ container_runtime := env("CONTAINER_RUNTIME", `bash -c '
     done
     echo docker
 '`)
+
+# editorconfig-checker-enable
 
 # Container invocation prefix for golangci-lint. Mounts the working dir at
 # /data and the host Go module cache so first-run resolution stays cheap.
@@ -283,11 +291,12 @@ lint-go-all: lint-go lint-go-modernize lint-go-deadcode lint-go-arch lint-workfl
 
 # Aggregates the Go gates (via `lint-go-all`), prose (vale), spelling
 # (cspell), Markdown (rumdl), config / JS / TS (biome), YAML (yamllint),
-# TOML (tombi), shell (shellcheck + shfmt), and this Justfile's own
-# formatting (just --fmt).
+# TOML (tombi), shell (shellcheck + shfmt), this Justfile's own formatting
+# (just --fmt), and the .editorconfig whitespace contract
+# (editorconfig-checker).
 
 # Run every linter that operates on the source tree.
-lint: lint-go-all lint-prose lint-spelling lint-markdown lint-config lint-yaml lint-toml lint-shell lint-shell-fmt lint-just
+lint: lint-go-all lint-prose lint-spelling lint-markdown lint-config lint-yaml lint-toml lint-shell lint-shell-fmt lint-just lint-editorconfig
 
 # --modules-download-mode=vendor matches `just build`, so the linter
 # sees exactly the dependency set the compiler does and never falls back
@@ -470,6 +479,28 @@ lint-shell-fmt:
 # Fail if `just --fmt` would reformat this Justfile.
 lint-just:
     just --fmt --check --unstable
+
+# Enforces the whitespace contract in .editorconfig (charset, line endings,
+# final newline, trailing whitespace, indentation) across every tracked
+# file, catching the file types no other gate here reads: the Justfile
+# itself, .gitignore, .editorconfig, the Brewfile, and plain text. With no
+# path arguments the checker walks the git index, so scope lives entirely in
+# .editorconfig-checker.json — whose Exclude list mirrors the top-level
+# `exclude:` in .pre-commit-config.yaml (vendored code, Vale's synced style
+# packages, and build output) plus CHANGELOG.md, which `cog changelog`
+# regenerates wholesale and which the vale hook and the prose recipes
+# already skip for the same reason. The single span that cannot meet the
+# contract — the container-runtime probe, whose continuation lines hang
+# under the first candidate path — carries inline disable/enable markers
+# rather than a tree-wide Disable entry, so indent width stays enforced
+# everywhere else. The binary is spelled out in full: upstream's own
+# Makefile also installs a short `ec` alias, but the Homebrew formula builds
+# only `editorconfig-checker`, and the Brewfile is how this repo provisions
+# the tool.
+
+# Check every tracked file against .editorconfig via editorconfig-checker.
+lint-editorconfig:
+    editorconfig-checker
 
 # Surfaces message problems while iterating rather than at commit time.
 # Reads the draft from the repo-root COMMIT_AGENTMSG file (gitignored;
