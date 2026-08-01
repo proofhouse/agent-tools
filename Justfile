@@ -91,6 +91,15 @@ go_arch_lint := 'DOCKER_CONFIG="$(mktemp -d)" PATH="$(dirname ' + container_runt
 # lint-workflows.yml in proofhouse/github-actions runs, so `just
 # lint-workflows` and CI share one actionlint.
 #
+# The tombi release this repo's config and committed formatting are
+# verified against. tombi is brew-installed, so `check-tombi-version`
+# compares the local binary with it: a mismatch means local formatting
+# may differ from what the gate expects.
+
+# renovate: datasource=github-releases depName=tombi-toml/tombi
+
+tombi_version := "1.2.5"
+
 # renovate: datasource=docker depName=rhysd/actionlint
 
 actionlint_version := "1.7.12"
@@ -193,6 +202,12 @@ format-markdown *args:
 format-config *args:
     biome format --write {{ if args == "" { "." } else { args } }}
 
+# In-place TOML formatter (tombi 1.2.0) — the fixer paired with `lint-toml`'s --check
+# gate. Rewrites whitespace/style only; key and array order are preserved (schema-driven
+# reordering is disabled in tombi.toml). Excludes and lockfile skips come from tombi.toml.
+format-toml:
+    tombi format
+
 # --- Fix ---
 # `go fix` (Go 1.26+) runs the modernizer analyzers; the blog post
 # (https://go.dev/blog/gofix) recommends running it to a fixed point —
@@ -229,7 +244,7 @@ lint-go-all: lint-go lint-go-modernize lint-go-deadcode lint-go-arch lint-workfl
 # (yamllint).
 
 # Run every linter that operates on the source tree.
-lint: lint-go-all lint-prose lint-spelling lint-markdown lint-config lint-yaml
+lint: lint-go-all lint-prose lint-spelling lint-markdown lint-config lint-yaml lint-toml
 
 # --modules-download-mode=vendor matches `just build`, so the linter
 # sees exactly the dependency set the compiler does and never falls back
@@ -343,6 +358,36 @@ lint-yaml *args:
 # Lint GitHub Actions workflow files via actionlint.
 lint-workflows:
     {{ actionlint }}
+
+# tombi is the org TOML gate (tombi 1.2.0): it lint-checks every tracked *.toml.
+# Cargo.toml/pyproject.toml validate offline against embedded SchemaStore schemas;
+# cog.toml, .rumdl.toml, REUSE.toml, deny.toml et al. get syntax + style checks. We run
+# the format gate in --check --diff mode here as well, so an unformatted TOML file fails
+# `just lint` without being rewritten (`just format-toml` is the in-place fixer).
+# --offline keeps CI hermetic against SchemaStore; --error-on-warnings promotes warnings
+# to hard failures (matching the org -D-warnings / --max-warnings=0 posture). Scope
+# (include/exclude, lockfile skips, schema.strict=false) lives in tombi.toml, so this
+# recipe passes NO path args — tombi walks the tree per that config. This deliberately
+# departs from the sibling `*args`-default-`.` idiom because tombi centralizes scoping in
+# tombi.toml rather than on the CLI, keeping excludes in one place.
+lint-toml:
+    tombi format --check --diff
+    tombi lint --offline --error-on-warnings
+
+# Warn when the locally installed tombi differs from the verified
+# release. Advisory rather than fatal: tombi comes from Homebrew and
+# moves on its own schedule, and that is fine so long as it stays
+# visible rather than silently reformatting a file the gate then
+# rejects.
+[script]
+check-tombi-version:
+    local=$(tombi --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    if [[ "${local}" != "{{ tombi_version }}" ]]; then
+        echo "warning: local tombi ${local} != verified {{ tombi_version }}" >&2
+        echo "         formatting may differ from what the gate expects" >&2
+    else
+        echo "tombi ${local} matches the verified release"
+    fi
 
 # Surfaces message problems while iterating rather than at commit time.
 # Reads the draft from the repo-root COMMIT_AGENTMSG file (gitignored;

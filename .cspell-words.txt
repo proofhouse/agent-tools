@@ -300,3 +300,7 @@ rhysd
 dogfoods
 dogfooding
 tmpl
+lockfiles
+pyproject
+tombi
+venv

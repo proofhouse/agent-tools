@@ -117,3 +117,10 @@ repos:
         language: system
         stages: [pre-commit, pre-push]
         types: [text]
+
+      - id: tombi
+        name: tombi (TOML lint + format-check)
+        entry: just lint-toml
+        language: system
+        types: [toml]
+        pass_filenames: false
