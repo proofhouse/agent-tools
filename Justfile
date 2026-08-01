@@ -1,5 +1,5 @@
-set unstable := true
-set positional-arguments := true
+set unstable
+set positional-arguments
 
 # Run [script] recipes under bash rather than the default sh. On Linux
 # sh is dash, which lacks [[ ]], <<<, and set -o pipefail — constructs
@@ -240,6 +240,16 @@ format-shell:
     files=$(git ls-files '*.sh' ':!:vendor/**')
     if [ -n "$files" ]; then shfmt -w $files; fi
 
+# just's formatter is still an unstable subcommand upstream. The `set
+# unstable` at the top of this file already unlocks it, but both this recipe
+# and `lint-just` pass --unstable explicitly so neither breaks if that
+# setting is ever narrowed or dropped. The formatter is opinionated and
+# rewrites the whole file, so run it deliberately rather than on save.
+
+# Reformat this Justfile in place via just's own formatter.
+format-just:
+    just --fmt --unstable
+
 # --- Fix ---
 # `go fix` (Go 1.26+) runs the modernizer analyzers; the blog post
 # (https://go.dev/blog/gofix) recommends running it to a fixed point —
@@ -273,10 +283,11 @@ lint-go-all: lint-go lint-go-modernize lint-go-deadcode lint-go-arch lint-workfl
 
 # Aggregates the Go gates (via `lint-go-all`), prose (vale), spelling
 # (cspell), Markdown (rumdl), config / JS / TS (biome), YAML (yamllint),
-# TOML (tombi), and shell (shellcheck + shfmt).
+# TOML (tombi), shell (shellcheck + shfmt), and this Justfile's own
+# formatting (just --fmt).
 
 # Run every linter that operates on the source tree.
-lint: lint-go-all lint-prose lint-spelling lint-markdown lint-config lint-yaml lint-toml lint-shell lint-shell-fmt
+lint: lint-go-all lint-prose lint-spelling lint-markdown lint-config lint-yaml lint-toml lint-shell lint-shell-fmt lint-just
 
 # --modules-download-mode=vendor matches `just build`, so the linter
 # sees exactly the dependency set the compiler does and never falls back
@@ -449,6 +460,16 @@ lint-shell:
 lint-shell-fmt:
     files=$(git ls-files '*.sh' ':!:vendor/**')
     if [ -n "$files" ]; then shfmt -d $files; fi
+
+# --check makes the formatter a gate: it exits non-zero and prints the
+# formatted text without touching the file, leaving `just format-just` as
+# the only thing that rewrites it. Worth gating because nothing else in the
+# toolchain reads Justfile syntax, so drift here is otherwise invisible
+# until a reviewer notices it by eye.
+
+# Fail if `just --fmt` would reformat this Justfile.
+lint-just:
+    just --fmt --check --unstable
 
 # Surfaces message problems while iterating rather than at commit time.
 # Reads the draft from the repo-root COMMIT_AGENTMSG file (gitignored;
