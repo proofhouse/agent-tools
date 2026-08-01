@@ -1,5 +1,5 @@
 ---
-# Main quality gate. Runs the Go-flavored lint set, the test suite
+# Main quality gate. Runs the full lint set, the test suite
 # (matrixed across linux/macOS/windows native runners with the race
 # detector enabled in every slot), govulncheck, and the vendor-drift
 # check on every pull request and every push to `main`. Each gate
@@ -8,9 +8,6 @@
 # Each matrix slot also uploads its own coverage report to GitHub's
 # code coverage API, and a downstream `coverage` job merges the slots
 # into one combined report.
-# The non-Go lint set (vale, cspell, rumdl, biome, yamllint) lands
-# in follow-up workflows that handle each tool's distinct install
-# path.
 #
 # Every job installs `just` from a SHA-pinned casey/just release
 # tarball, verifies the bundled SHA256SUMS, and then invokes the
@@ -33,8 +30,19 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  lint-go:
-    name: lint-go
+  # Invokes only the `lint` aggregator recipe, so the job stays
+  # unchanged as new gates land — each gate appends itself to the
+  # aggregator in the Justfile instead. `lint` and not `lint-go-all`:
+  # the text-quality gates (prose, spelling, Markdown, config, YAML,
+  # TOML, shell, Justfile formatting, .editorconfig) used to run only
+  # through the local pre-commit hooks, which `git commit --no-verify`
+  # walks straight past, so nothing on the merge path read them. The
+  # tools those gates need are not Go modules, so the job installs the
+  # Brewfile toolchain and syncs the Vale styles first. That makes this
+  # job meaningfully longer than the old Go-only one; the coverage is
+  # worth the minutes.
+  lint:
+    name: lint
     runs-on: ubuntu-24.04
     steps:
       - name: Harden the runner
@@ -47,17 +55,46 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up just
+        uses: proofhouse/github-actions/.github/actions/setup-just@131c527df05799916f98d8c4b26eb225dbfc7845 # v0.4.0
+
+      # The ubuntu-24.04 image ships Homebrew but leaves its prefix off
+      # the PATH, so expose the bin and sbin directories before any brew
+      # invocation.
+      - name: Put Homebrew on the PATH
+        run: echo "/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin" >> "$GITHUB_PATH"
+
+      # The image pins an older Homebrew and sets HOMEBREW_NO_AUTO_UPDATE,
+      # but `brew bundle` reads formula metadata from the JSON API, which
+      # serves current definitions. ca-certificates now declares a `run`
+      # install step that the pinned Homebrew cannot parse, failing every
+      # formula that depends on it. Update Homebrew itself first.
+      - name: Update Homebrew
+        run: brew update
+
+      # Brings in vale, cspell, rumdl, biome, yamllint, tombi, shfmt, and
+      # editorconfig-checker. The Brewfile also names just, which the step
+      # above already installed; brew reinstalling it is cheaper than
+      # maintaining a second, partial dependency list.
+      - name: Install Homebrew dependencies
+        run: brew bundle install
+
+      # After `brew bundle`, so the go.mod toolchain lands ahead of the
+      # Homebrew `go` the Brewfile pulls in — GITHUB_PATH prepends, and
+      # the Go gates must read the version the module declares.
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           check-latest: false
 
-      - name: Set up just
-        uses: proofhouse/github-actions/.github/actions/setup-just@131c527df05799916f98d8c4b26eb225dbfc7845 # v0.4.0
+      # Vale's style packages are downloaded, not vendored, so
+      # `lint-prose` fails on a bare checkout without this.
+      - name: Sync Vale styles
+        run: just install-tools
 
-      - name: Run Go-flavored lints
-        run: just lint-go-all
+      - name: Run lint gates
+        run: just lint
 
   test:
     name: "test (${{ matrix.os }})"

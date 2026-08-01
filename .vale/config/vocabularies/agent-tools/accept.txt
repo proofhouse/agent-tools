@@ -237,3 +237,5 @@ rhysd
 [Yy]amllint('s)?
 [Ll]ockfiles?
 agent-tools
+[Ss]hellcheck
+[Ss]hfmt

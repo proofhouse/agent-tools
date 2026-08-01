@@ -1,5 +1,5 @@
-set unstable := true
-set positional-arguments := true
+set unstable
+set positional-arguments
 
 # Run [script] recipes under bash rather than the default sh. On Linux
 # sh is dash, which lacks [[ ]], <<<, and set -o pipefail — constructs
@@ -31,7 +31,13 @@ golangci_lint_image := "docker.io/golangci/golangci-lint:v2.12.2@sha256:5cceeef0
 # well-known install locations so the recipe still works inside agentic
 # harnesses or sandboxes that strip /usr/local/bin from PATH. Override by
 # setting CONTAINER_RUNTIME in the environment.
-
+#
+# The continuation lines of the `for` list below hang under the first
+# candidate path rather than on a two-space grid, which is what shell
+# style calls for and what `lint-editorconfig` would otherwise reject
+# under this file's indent_size = 2. Exempt just that span rather than
+# re-indent a block the sibling repos carry verbatim.
+# editorconfig-checker-disable
 container_runtime := env("CONTAINER_RUNTIME", `bash -c '
     docker_path=$(command -v docker 2>/dev/null || true)
     podman_path=$(command -v podman 2>/dev/null || true)
@@ -47,6 +53,8 @@ container_runtime := env("CONTAINER_RUNTIME", `bash -c '
     done
     echo docker
 '`)
+
+# editorconfig-checker-enable
 
 # Container invocation prefix for golangci-lint. Mounts the working dir at
 # /data and the host Go module cache so first-run resolution stays cheap.
@@ -110,6 +118,24 @@ actionlint_image := "docker.io/rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f
 # the shared workflow applies in CI.
 
 actionlint := 'DOCKER_CONFIG="$(mktemp -d)" PATH="$(dirname ' + container_runtime + '):$PATH" ' + container_runtime + ' run --rm -v "$(pwd):/repo:ro" -w /repo ' + actionlint_image
+
+# shellcheck version pin. Same Docker-pin pattern as the linters above, and
+# Renovate tracks the version + digest pair through the shared Justfile
+# custom manager via the comment marker. This is a distinct gate from the
+# shellcheck bundled inside the actionlint image: that copy only ever sees
+# `run:` blocks embedded in workflow YAML, and never opens the standalone
+# scripts under hooks/ and tools/ that `lint-shell` below covers.
+#
+# renovate: datasource=docker depName=koalaman/shellcheck
+
+shellcheck_version := "v0.11.0"
+shellcheck_image := "docker.io/koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d"
+
+# shellcheck invocation. Mounts the tree read-only at /mnt since the linter
+# only reads source; the recipe passes repo-relative paths, so the working
+# directory has to be the mount point.
+
+shellcheck := 'DOCKER_CONFIG="$(mktemp -d)" PATH="$(dirname ' + container_runtime + '):$PATH" ' + container_runtime + ' run --rm -v "$(pwd):/mnt:ro" -w /mnt ' + shellcheck_image
 
 # Build metadata. `date` is the *committer date* (UTC, ISO-8601),
 # not build invocation time, so two builds of the same commit produce
@@ -208,6 +234,30 @@ format-config *args:
 format-toml:
     tombi format
 
+# The in-place fixer paired with `lint-shell-fmt`'s -d gate. shfmt reads
+# indent width and the final-newline setting from .editorconfig, so the
+# formatter and the shell gate agree without a second config file. The
+# vendor/ exclusion matches `lint-shell`: those scripts belong to upstream
+# and are reviewed at vendor-tidy time, not reformatted to our style. The
+# emptiness guard keeps shfmt from falling back to reading stdin (and
+# hanging) if the tree ever carries no matching script.
+
+# Format shell scripts in place via shfmt.
+[script]
+format-shell:
+    files=$(git ls-files '*.sh' ':!:vendor/**')
+    if [ -n "$files" ]; then shfmt -w $files; fi
+
+# just's formatter is still an unstable subcommand upstream. The `set
+# unstable` at the top of this file already unlocks it, but both this recipe
+# and `lint-just` pass --unstable explicitly so neither breaks if that
+# setting is ever narrowed or dropped. The formatter is opinionated and
+# rewrites the whole file, so run it deliberately rather than on save.
+
+# Reformat this Justfile in place via just's own formatter.
+format-just:
+    just --fmt --unstable
+
 # --- Fix ---
 # `go fix` (Go 1.26+) runs the modernizer analyzers; the blog post
 # (https://go.dev/blog/gofix) recommends running it to a fixed point —
@@ -240,11 +290,13 @@ fix-markdown *args:
 lint-go-all: lint-go lint-go-modernize lint-go-deadcode lint-go-arch lint-workflows
 
 # Aggregates the Go gates (via `lint-go-all`), prose (vale), spelling
-# (cspell), Markdown (rumdl), config / JS / TS (biome), and YAML
-# (yamllint).
+# (cspell), Markdown (rumdl), config / JS / TS (biome), YAML (yamllint),
+# TOML (tombi), shell (shellcheck + shfmt), this Justfile's own formatting
+# (just --fmt), and the .editorconfig whitespace contract
+# (editorconfig-checker).
 
 # Run every linter that operates on the source tree.
-lint: lint-go-all lint-prose lint-spelling lint-markdown lint-config lint-yaml lint-toml
+lint: lint-go-all lint-prose lint-spelling lint-markdown lint-config lint-yaml lint-toml lint-shell lint-shell-fmt lint-just lint-editorconfig
 
 # --modules-download-mode=vendor matches `just build`, so the linter
 # sees exactly the dependency set the compiler does and never falls back
@@ -388,6 +440,67 @@ check-tombi-version:
     else
         echo "tombi ${local} matches the verified release"
     fi
+
+# Covers the standalone scripts the actionlint image never opens
+# (hooks/go-lint.sh, tools/fuzz.sh). The file list comes from git rather
+# than a glob so untracked scratch scripts stay out of the gate, and the
+# `:!:vendor/**` pathspec drops the vendored upstream scripts, which are
+# reviewed at vendor-tidy time rather than held to this project's style.
+# The emptiness guard matters because shellcheck with no path arguments
+# reads stdin and blocks. Runs from the SHA-pinned image above, so the
+# shellcheck version advances by Renovate rather than by whatever the
+# contributor happens to have on PATH.
+
+# Lint every tracked non-vendored *.sh via the pinned shellcheck image.
+[script]
+lint-shell:
+    files=$(git ls-files '*.sh' ':!:vendor/**')
+    if [ -n "$files" ]; then {{ shellcheck }} $files; fi
+
+# The check-only mirror of `format-shell`: -d prints a unified diff and
+# exits non-zero when shfmt would rewrite anything, so the gate reports the
+# exact edit to make instead of silently reformatting a contributor's tree.
+# shfmt is a host tool from the Brewfile, not a container, because it also
+# backs the local pre-commit hook where a per-file docker run would dominate
+# the hook's runtime.
+
+# Fail if shfmt would reformat any tracked non-vendored *.sh.
+[script]
+lint-shell-fmt:
+    files=$(git ls-files '*.sh' ':!:vendor/**')
+    if [ -n "$files" ]; then shfmt -d $files; fi
+
+# --check makes the formatter a gate: it exits non-zero and prints the
+# formatted text without touching the file, leaving `just format-just` as
+# the only thing that rewrites it. Worth gating because nothing else in the
+# toolchain reads Justfile syntax, so drift here is otherwise invisible
+# until a reviewer notices it by eye.
+
+# Fail if `just --fmt` would reformat this Justfile.
+lint-just:
+    just --fmt --check --unstable
+
+# Enforces the whitespace contract in .editorconfig (charset, line endings,
+# final newline, trailing whitespace, indentation) across every tracked
+# file, catching the file types no other gate here reads: the Justfile
+# itself, .gitignore, .editorconfig, the Brewfile, and plain text. With no
+# path arguments the checker walks the git index, so scope lives entirely in
+# .editorconfig-checker.json — whose Exclude list mirrors the top-level
+# `exclude:` in .pre-commit-config.yaml (vendored code, Vale's synced style
+# packages, and build output) plus CHANGELOG.md, which `cog changelog`
+# regenerates wholesale and which the vale hook and the prose recipes
+# already skip for the same reason. The single span that cannot meet the
+# contract — the container-runtime probe, whose continuation lines hang
+# under the first candidate path — carries inline disable/enable markers
+# rather than a tree-wide Disable entry, so indent width stays enforced
+# everywhere else. The binary is spelled out in full: upstream's own
+# Makefile also installs a short `ec` alias, but the Homebrew formula builds
+# only `editorconfig-checker`, and the Brewfile is how this repo provisions
+# the tool.
+
+# Check every tracked file against .editorconfig via editorconfig-checker.
+lint-editorconfig:
+    editorconfig-checker
 
 # Surfaces message problems while iterating rather than at commit time.
 # Reads the draft from the repo-root COMMIT_AGENTMSG file (gitignored;

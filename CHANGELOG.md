@@ -1,13 +1,21 @@
 # Changelog
+
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+
 ## [v0.1.0](https://github.com/proofhouse/agent-tools/compare/47f04153b42abe1542d9e6ac744817886fa885c3..v0.1.0) - 2026-06-12
-#### Features
+
+### Features
+
 - ship the org's shared APM package alongside the Go tools - ([78bb3e5](https://github.com/proofhouse/agent-tools/commit/78bb3e588ad33d0543582dfc60105aef65fe3003)) - [@tbhb](https://github.com/tbhb)
+
 #### Build system
+
 - run actionlint from a pinned Docker image (#12) - ([010f234](https://github.com/proofhouse/agent-tools/commit/010f234c680100c27f269afcd199ff533de44f87)) - [@tbhb](https://github.com/tbhb)
+
 #### Continuous Integration
+
 - (**release**) pass an explicit bump command to the cocogitto action - ([e62a36f](https://github.com/proofhouse/agent-tools/commit/e62a36f7d8f1b0be61154eccf0ec2d04cacf5b57)) - [@tbhb](https://github.com/tbhb)
 - (**renovate**) use shared presets in this repo config (#19) - ([a95473a](https://github.com/proofhouse/agent-tools/commit/a95473aaa63481a6af07eccf16a325a5dc448282)) - [@tbhb](https://github.com/tbhb)
 - (**renovate**) track Vale style packages in .vale.ini (#18) - ([4594c39](https://github.com/proofhouse/agent-tools/commit/4594c39a4148cb65bc147046eaccc50e1a8997f8)) - [@tbhb](https://github.com/tbhb)
