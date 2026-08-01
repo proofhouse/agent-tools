@@ -119,6 +119,12 @@ actionlint_image := "docker.io/rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f
 
 actionlint := 'DOCKER_CONFIG="$(mktemp -d)" PATH="$(dirname ' + container_runtime + '):$PATH" ' + container_runtime + ' run --rm -v "$(pwd):/repo:ro" -w /repo ' + actionlint_image
 
+# renovate: datasource=docker depName=ghcr.io/gitleaks/gitleaks
+
+gitleaks_version := "v8.28.0"
+gitleaks_image := "ghcr.io/gitleaks/gitleaks:v8.28.0@sha256:cdbb7c955abce02001a9f6c9f602fb195b7fadc1e812065883f695d1eeaba854"
+gitleaks_scan := 'DOCKER_CONFIG="$(mktemp -d)" PATH="$(dirname ' + container_runtime + '):$PATH" ' + container_runtime + ' run --rm -v "$(pwd):/repo" -w /repo ' + gitleaks_image
+
 # shellcheck version pin. Same Docker-pin pattern as the linters above, and
 # Renovate tracks the version + digest pair through the shared Justfile
 # custom manager via the comment marker. This is a distinct gate from the
@@ -671,13 +677,14 @@ vuln-sarif file:
 # `gitleaks git` walks every commit's diff against the bundled
 # regular-expression and entropy rule set; findings name the file, line,
 # commit, and matching rule so the offending change can be located
-# without re-running the scan. Brew pins the binary in the Brewfile; the
-# rule set advances with `brew upgrade gitleaks`. A later workflow under
-# `.github/workflows/` re-runs the same scan on every PR.
+# without re-running the scan. The scan runs from the digest-pinned
+# gitleaks image, so the rule set advances only when Renovate bumps that
+# pin. A later workflow under `.github/workflows/` re-runs the same scan
+# on every PR.
 
 # Scan the working tree and full git history for committed secrets.
 gitleaks:
-    gitleaks git --verbose .
+    {{ gitleaks_scan }} git --verbose .
 
 # Uses the external gomodscan tool (extracted from this repo's former
 # tools/depscan and tools/malscan) to flag two supply-chain concerns:
