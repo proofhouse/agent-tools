@@ -14,8 +14,8 @@ import "runtime/debug"
 const devFallback = "DEV"
 
 // Build-time variables. The Justfile and goreleaser config both set these via
-// -ldflags "-X github.com/proofhouse/agent-tools/internal/buildmeta.<Var>=<value>".
-// The defaults below apply when the build passes no ldflags.
+// -ldflags "-X github.com/proofhouse/agent-tools/internal/buildmeta.<Var>=<value>"
+// at link time. The defaults below apply when the build passes no ldflags.
 //
 //nolint:gochecknoglobals // ldflags -X can only patch package-level vars
 var (

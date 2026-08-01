@@ -17,7 +17,7 @@ description: >-
 Draft every commit message in a repo-root file named `COMMIT_AGENTMSG`
 before you run `git commit`. A gitignore entry keeps that file out of
 history, so it serves purely as a scratchpad for iterating on the
-message. Three steps make up the workflow.
+message.
 
 1. Write the full message (subject, body, and trailers) to
    `COMMIT_AGENTMSG`.
