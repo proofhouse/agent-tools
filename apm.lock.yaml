@@ -7,4 +7,4 @@ local_deployed_files:
 - .claude/skills/commit/SKILL.md
 local_deployed_file_hashes:
   .claude/rules/worktree-wip.md: sha256:b78405376189bcb85cb5db7f9e8e42c9bbcc635df80ccc5b5b79011141ee691f
-  .claude/skills/commit/SKILL.md: sha256:999704f1e928de8a64403d04b3a51781192bd31f55252f551178d9113da71854
+  .claude/skills/commit/SKILL.md: sha256:59a315a85ab1c42d10261c8e3c019043b2b400774e7da3e980c45f565fcf1d17
