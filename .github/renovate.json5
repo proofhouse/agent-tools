@@ -8,6 +8,8 @@
   // the go-deps grouping) shared by every Go repo. Both resolve after
   // platform initialization, with token auth.
   extends: [
+    // TEMPORARY PROBE - do not merge. Names a preset that does not exist.
+    "github>proofhouse/github-actions//.github/no-such-preset.json5",
     "github>proofhouse/github-actions//.github/renovate-config.json5",
     "github>proofhouse/github-actions//.github/renovate-go-config.json5",
   ],
