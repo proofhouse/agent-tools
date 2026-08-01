@@ -100,6 +100,24 @@ repos:
         types: [go]
         pass_filenames: false
 
+      # Shell gates, wired the same way as the Go pair above: the recipe
+      # owns the file list (git ls-files minus vendor/), so the hooks pass
+      # no filenames and only decide *whether* to run. shellcheck comes
+      # from the pinned Docker image, shfmt from the Brewfile.
+      - id: shellcheck
+        name: shellcheck
+        entry: just lint-shell
+        language: system
+        types: [shell]
+        pass_filenames: false
+
+      - id: shfmt
+        name: shfmt
+        entry: just lint-shell-fmt
+        language: system
+        types: [shell]
+        pass_filenames: false
+
       - id: vendor-tidy
         name: go mod tidy + vendor drift check
         entry: bash -c 'go mod tidy && go mod vendor && git diff --exit-code -- go.mod go.sum vendor/'

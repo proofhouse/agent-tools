@@ -111,6 +111,24 @@ actionlint_image := "docker.io/rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f
 
 actionlint := 'DOCKER_CONFIG="$(mktemp -d)" PATH="$(dirname ' + container_runtime + '):$PATH" ' + container_runtime + ' run --rm -v "$(pwd):/repo:ro" -w /repo ' + actionlint_image
 
+# shellcheck version pin. Same Docker-pin pattern as the linters above, and
+# Renovate tracks the version + digest pair through the shared Justfile
+# custom manager via the comment marker. This is a distinct gate from the
+# shellcheck bundled inside the actionlint image: that copy only ever sees
+# `run:` blocks embedded in workflow YAML, and never opens the standalone
+# scripts under hooks/ and tools/ that `lint-shell` below covers.
+#
+# renovate: datasource=docker depName=koalaman/shellcheck
+
+shellcheck_version := "v0.11.0"
+shellcheck_image := "docker.io/koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d"
+
+# shellcheck invocation. Mounts the tree read-only at /mnt since the linter
+# only reads source; the recipe passes repo-relative paths, so the working
+# directory has to be the mount point.
+
+shellcheck := 'DOCKER_CONFIG="$(mktemp -d)" PATH="$(dirname ' + container_runtime + '):$PATH" ' + container_runtime + ' run --rm -v "$(pwd):/mnt:ro" -w /mnt ' + shellcheck_image
+
 # Build metadata. `date` is the *committer date* (UTC, ISO-8601),
 # not build invocation time, so two builds of the same commit produce
 # identical binaries. `source_date_epoch` exports the same instant as
@@ -208,6 +226,20 @@ format-config *args:
 format-toml:
     tombi format
 
+# The in-place fixer paired with `lint-shell-fmt`'s -d gate. shfmt reads
+# indent width and the final-newline setting from .editorconfig, so the
+# formatter and the shell gate agree without a second config file. The
+# vendor/ exclusion matches `lint-shell`: those scripts belong to upstream
+# and are reviewed at vendor-tidy time, not reformatted to our style. The
+# emptiness guard keeps shfmt from falling back to reading stdin (and
+# hanging) if the tree ever carries no matching script.
+
+# Format shell scripts in place via shfmt.
+[script]
+format-shell:
+    files=$(git ls-files '*.sh' ':!:vendor/**')
+    if [ -n "$files" ]; then shfmt -w $files; fi
+
 # --- Fix ---
 # `go fix` (Go 1.26+) runs the modernizer analyzers; the blog post
 # (https://go.dev/blog/gofix) recommends running it to a fixed point —
@@ -240,11 +272,11 @@ fix-markdown *args:
 lint-go-all: lint-go lint-go-modernize lint-go-deadcode lint-go-arch lint-workflows
 
 # Aggregates the Go gates (via `lint-go-all`), prose (vale), spelling
-# (cspell), Markdown (rumdl), config / JS / TS (biome), and YAML
-# (yamllint).
+# (cspell), Markdown (rumdl), config / JS / TS (biome), YAML (yamllint),
+# TOML (tombi), and shell (shellcheck + shfmt).
 
 # Run every linter that operates on the source tree.
-lint: lint-go-all lint-prose lint-spelling lint-markdown lint-config lint-yaml lint-toml
+lint: lint-go-all lint-prose lint-spelling lint-markdown lint-config lint-yaml lint-toml lint-shell lint-shell-fmt
 
 # --modules-download-mode=vendor matches `just build`, so the linter
 # sees exactly the dependency set the compiler does and never falls back
@@ -388,6 +420,35 @@ check-tombi-version:
     else
         echo "tombi ${local} matches the verified release"
     fi
+
+# Covers the standalone scripts the actionlint image never opens
+# (hooks/go-lint.sh, tools/fuzz.sh). The file list comes from git rather
+# than a glob so untracked scratch scripts stay out of the gate, and the
+# `:!:vendor/**` pathspec drops the vendored upstream scripts, which are
+# reviewed at vendor-tidy time rather than held to this project's style.
+# The emptiness guard matters because shellcheck with no path arguments
+# reads stdin and blocks. Runs from the SHA-pinned image above, so the
+# shellcheck version advances by Renovate rather than by whatever the
+# contributor happens to have on PATH.
+
+# Lint every tracked non-vendored *.sh via the pinned shellcheck image.
+[script]
+lint-shell:
+    files=$(git ls-files '*.sh' ':!:vendor/**')
+    if [ -n "$files" ]; then {{ shellcheck }} $files; fi
+
+# The check-only mirror of `format-shell`: -d prints a unified diff and
+# exits non-zero when shfmt would rewrite anything, so the gate reports the
+# exact edit to make instead of silently reformatting a contributor's tree.
+# shfmt is a host tool from the Brewfile, not a container, because it also
+# backs the local pre-commit hook where a per-file docker run would dominate
+# the hook's runtime.
+
+# Fail if shfmt would reformat any tracked non-vendored *.sh.
+[script]
+lint-shell-fmt:
+    files=$(git ls-files '*.sh' ':!:vendor/**')
+    if [ -n "$files" ]; then shfmt -d $files; fi
 
 # Surfaces message problems while iterating rather than at commit time.
 # Reads the draft from the repo-root COMMIT_AGENTMSG file (gitignored;
