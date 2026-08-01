@@ -1,46 +1,30 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
 
-  // This repo's Renovate config is mostly shared org policy, pulled in from
-  // renovate-config.json5 in proofhouse/github-actions via extends — the
-  // repository-level rules plus the Justfile and Vale custom managers shared
-  // by every repo.
-  //
-  // The global-only options (identity, rate limits, requireConfig) are
-  // inlined below instead of pulled via a globalExtends preset: Renovate
+  // The repository-level org policy comes from two shared presets in
+  // proofhouse/github-actions: renovate-config.json5 carries the rules plus
+  // the Justfile and Vale custom managers used by every repo, and
+  // renovate-go-config.json5 carries the Go-module specifics (gomodTidy and
+  // the go-deps grouping) shared by every Go repo. Both resolve after
+  // platform initialization, with token auth.
+  extends: [
+    "github>proofhouse/github-actions//.github/renovate-config.json5",
+    "github>proofhouse/github-actions//.github/renovate-go-config.json5",
+  ],
+
+  // Global-only identity, rate limits, and requireConfig. These previously
+  // came from renovate-global-config.json5 via globalExtends, but Renovate
   // resolves globalExtends before host rules are registered, so that preset
   // fetch was always anonymous and intermittently hit GitHub's per-IP rate
-  // limit for unauthenticated requests (config-presets-invalid).
-  //
-  // The Go-module specifics also stay inline: they don't apply to the
-  // non-Go repos, so they don't belong in the shared preset. packageRules
-  // is a mergeable array, so the go-deps rule appends to the preset's rules.
+  // limit (config-presets-invalid). Inlining the resolved values removes
+  // the pre-auth fetch entirely.
   requireConfig: "ignored",
   username: "proofhouse-renovate[bot]",
   gitAuthor: "proofhouse-renovate[bot] <289255489+proofhouse-renovate[bot]@users.noreply.github.com>",
   prConcurrentLimit: 0,
   prHourlyLimit: 0,
-  extends: [
-    "github>proofhouse/github-actions//.github/renovate-config.json5",
-  ],
 
-  // Single-repo scope. The one global-only option that can't move to the
-  // shared preset — it differs per repo.
+  // Single-repo scope. Global-only and different per repo, so it stays here
+  // as the only genuinely local setting left.
   repositories: ["proofhouse/agent-tools"],
-
-  // `gomodTidy` runs `go mod tidy` after a Go-module update so go.sum and
-  // the indirect graph stay coherent in the same PR. Self-hosting means the
-  // project picks the Go toolchain version the sidecar uses (matches
-  // go.mod's toolchain pin, not whatever the hosted Mend App ships).
-  postUpdateOptions: ["gomodTidy"],
-
-  packageRules: [
-    // One review surface for every Go-module bump. Bundling avoids the
-    // "twelve tiny PRs" failure mode and makes the vendor/ diff easier to
-    // read as a single unit.
-    {
-      groupName: "go-deps",
-      matchManagers: ["gomod"],
-    },
-  ],
 }
