@@ -24,8 +24,8 @@ bin_dir := "bin"
 #
 # renovate: datasource=docker depName=golangci/golangci-lint
 
-golangci_lint_version := "v2.12.2"
-golangci_lint_image := "docker.io/golangci/golangci-lint:v2.12.2@sha256:5cceeef04e53efe1470638d4b4b4f5ceefd574955ab3941b2d9a68a8c9ad5240"
+golangci_lint_version := "v2.13.2"
+golangci_lint_image := "docker.io/golangci/golangci-lint:v2.13.2@sha256:ba07dffad130794ae79ebaa0056809d18c0168f3f846480ffd3eb6c04578b83d"
 
 # Locate a Docker-compatible container runtime. Probe PATH first, then
 # well-known install locations so the recipe still works inside agentic
