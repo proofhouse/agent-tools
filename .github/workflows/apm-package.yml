@@ -47,7 +47,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Harden the runner
-        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
@@ -94,7 +94,7 @@ jobs:
       actions: read
       security-events: write
     # yamllint disable-line rule:line-length
-    uses: cisco-ai-defense/skill-scanner/.github/workflows/scan-skills.yml@605afdc5c7ea887c07e2afeb0fadc1452c07bfa7 # 2.0.12
+    uses: cisco-ai-defense/skill-scanner/.github/workflows/scan-skills.yml@a49c8d9f7555dd99a9f5e4430c3bb8d4fe4a9371 # 2.0.14
     with:
       skill_path: .apm/skills
       format: sarif
