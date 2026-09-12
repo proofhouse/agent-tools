@@ -57,7 +57,7 @@ repos:
         args: [--output=proofhouse-agent.tmpl]
 
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: 75cad3ecfe02b58e8165d3ac08d117bee207ed3d  # frozen: v0.2.43
+    rev: 2fecbf66b37cc6d7a0d1edddbe164e3d516eee2b  # frozen: v0.2.68
     hooks:
       - id: rumdl-fmt
       - id: rumdl
